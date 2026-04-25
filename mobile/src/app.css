@@ -187,6 +187,21 @@
 }
 
 /* ============================================================
+   Avatar skeleton canvas
+   ============================================================ */
+
+.avatar-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+  /* Mirror to match the camera feed which is also scaleX(-1) */
+  transform: scaleX(-1);
+}
+
+/* ============================================================
    Status bar (top)
    ============================================================ */
 

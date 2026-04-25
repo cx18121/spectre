@@ -3,6 +3,7 @@ import { useCamera } from '../hooks/useCamera';
 import { usePose } from '../hooks/usePose';
 import { useCalibration } from '../hooks/useCalibration';
 import { CameraView } from './CameraView';
+import { AvatarCanvas } from './AvatarCanvas';
 import { CalibrationOverlay } from './CalibrationOverlay';
 import { HitFlash } from './HitFlash';
 import { MatchEndScreen } from './MatchEndScreen';
@@ -108,6 +109,8 @@ export function GameScreen({
   return (
     <div className="game-screen">
       <CameraView ref={videoRef} error={cameraError} />
+
+      <AvatarCanvas keypoints={keypoints} hitRegion={lastHit?.region ?? null} />
 
       <StatusBar
         status={status}
