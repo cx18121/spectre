@@ -1,25 +1,21 @@
 from __future__ import annotations
-import qrcode
+import time
 
 
 def print_startup_info(public_url: str, room_code: str) -> None:
-    mobile_url = f"{public_url}/mobile?server={public_url}&room={room_code}&slot=2"
-    overlay_url = f"{public_url}/overlay?server={public_url}&room={room_code}"
+    # Cache-buster so phones don't reuse a stale index.html after a rebuild.
+    cb = int(time.time())
+    p1_url = f"{public_url}/mobile?server={public_url}&room={room_code}&slot=1&v={cb}"
+    p2_url = f"{public_url}/mobile?server={public_url}&room={room_code}&slot=2&v={cb}"
+    overlay_url = f"{public_url}/overlay?server={public_url}&room={room_code}&v={cb}"
 
     print()
     print("=== SHADOW FIGHT SERVER READY ===")
-    print(f"Public URL: {public_url}")
-    print(f"Room code:  {room_code}")
+    print(f"Room code: {room_code}")
     print()
-    print("Share this URL with your teammate (opens on their phone):")
-    print(f"  {mobile_url}")
+    print(f"Overlay link:  {overlay_url}")
     print()
-    print("Open the overlay at:")
-    print(f"  {overlay_url}")
+    print(f"Player 1 link: {p1_url}")
     print()
-    print("Scan to join on mobile:")
-
-    qr = qrcode.QRCode()
-    qr.add_data(mobile_url)
-    qr.make(fit=True)
-    qr.print_ascii(invert=True)
+    print(f"Player 2 link: {p2_url}")
+    print()
