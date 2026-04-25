@@ -49,11 +49,20 @@ if [ ! -d "$ROOT/overlay/node_modules" ]; then
 fi
 
 # Free port 8000 if a previous run left something behind.
-pid=$(lsof -ti :8000 2>/dev/null || true)
-if [ -n "$pid" ]; then
-  echo "Port 8000 held by pid $pid -- killing"
-  kill "$pid" 2>/dev/null || true
-  sleep 0.3
+# `|| true` is REQUIRED: lsof returns exit 1 when no process matches, and
+# under `set -e` the empty subshell would abort this script silently.
+# shellcheck disable=SC2207
+pids=( $(lsof -ti :8000 2>/dev/null || true) )
+if [ "${#pids[@]}" -gt 0 ]; then
+  echo "Port 8000 held by pid(s) ${pids[*]} -- killing"
+  kill "${pids[@]}" 2>/dev/null || true
+  sleep 0.5
+  # shellcheck disable=SC2207
+  still=( $(lsof -ti :8000 2>/dev/null || true) )
+  if [ "${#still[@]}" -gt 0 ]; then
+    kill -9 "${still[@]}" 2>/dev/null || true
+    sleep 0.5
+  fi
 fi
 
 # ---------- build bundles --------------------------------------------------
