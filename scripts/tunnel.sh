@@ -65,6 +65,11 @@ if [ "${#pids[@]}" -gt 0 ]; then
   fi
 fi
 
+# Cloudflare quick-tunnel slots are per-IP rate-limited. A previous failed
+# run can leave a `cloudflared` lingering and the next launch silently gets
+# a degraded tunnel. Sweep before we start.
+pkill -f "cloudflared tunnel --url" 2>/dev/null || true
+
 # ---------- build bundles --------------------------------------------------
 
 echo "Building mobile bundle..."
@@ -83,10 +88,17 @@ echo "Building overlay bundle..."
 
 # ---------- start server with tunnel ---------------------------------------
 
+SERVER_LOG=/tmp/shadowfight-server.log
+: > "$SERVER_LOG"
+
 cleanup() {
   echo ""
   echo "Stopping server and tunnel..."
   kill "${server_pid:-}" 2>/dev/null || true
+  kill "${tail_pid:-}" 2>/dev/null || true
+  # tunnel.py terminates cloudflared on shutdown, but if the python process
+  # was killed hard the cloudflared child can survive -- sweep it.
+  pkill -f "cloudflared tunnel --url" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
@@ -94,7 +106,7 @@ cat <<'BANNER'
 
 ============================================================
 Starting server with Cloudflare tunnel.
-The first launch may take ~10-15s while cloudflared
+The first launch may take ~10-30s while cloudflared
 negotiates a public URL. Watch for the banner below.
 ============================================================
 
@@ -103,14 +115,37 @@ BANNER
 cd "$ROOT/server"
 source .venv/bin/activate
 # TUNNEL is true by default in main.py, so we just don't override it.
-python main.py &
+# -u disables python output buffering so the readiness banner reaches the
+# log file immediately rather than getting stuck in stdio buffers.
+python -u main.py >"$SERVER_LOG" 2>&1 &
 server_pid=$!
 
-# ---------- wait + print friendly guide ------------------------------------
+# Stream the server log to the user's terminal in real time.
+tail -F "$SERVER_LOG" &
+tail_pid=$!
 
-# Give the server time to print its full startup banner (which contains the
-# public URL printed by qr.py).
-sleep 12
+# ---------- wait for readiness, not just sleep -----------------------------
+
+# The previous version slept a flat 12s and then printed the help banner,
+# even if cloudflared was still negotiating. Users would copy a URL that
+# wasn't live yet and see "links don't load". Wait for the actual banner.
+ready_deadline=$((SECONDS + 60))
+while ! grep -q "SHADOW FIGHT SERVER READY" "$SERVER_LOG" 2>/dev/null; do
+  if ! kill -0 "$server_pid" 2>/dev/null; then
+    echo ""
+    echo "ERROR: server exited before becoming ready. See $SERVER_LOG"
+    exit 1
+  fi
+  if [ "$SECONDS" -ge "$ready_deadline" ]; then
+    echo ""
+    echo "ERROR: server did not become ready within 60s."
+    echo "  Cloudflare quick-tunnels are sometimes rate-limited. Wait a"
+    echo "  minute and try again, or run scripts/dev.sh for LAN play."
+    echo "  Log: $SERVER_LOG"
+    exit 1
+  fi
+  sleep 0.3
+done
 
 cat <<EOF
 

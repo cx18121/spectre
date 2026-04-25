@@ -11,6 +11,7 @@ export type ModelStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface UsePoseResult {
   keypoints: PoseKeypoint[] | null;
+  imageKeypoints: PoseKeypoint[] | null;
   fps: number;
   modelStatus: ModelStatus;
   modelError: string | null;
@@ -26,6 +27,7 @@ export function usePose(
   cameraReady: boolean,
 ): UsePoseResult {
   const [keypoints, setKeypoints] = useState<PoseKeypoint[] | null>(null);
+  const [imageKeypoints, setImageKeypoints] = useState<PoseKeypoint[] | null>(null);
   const [fps, setFps] = useState(0);
   const [modelStatus, setModelStatus] = useState<ModelStatus>('idle');
   const [modelError, setModelError] = useState<string | null>(null);
@@ -85,9 +87,19 @@ export function usePose(
             z: lm.z,
             visibility: lm.visibility ?? 0,
           }));
-          const smoothed = smoothKeypoints(prevKeypointsRef.current, raw, 0.5);
+          // alpha=0.7 keeps 70% of new data — snappier punch response vs old 0.5
+          const smoothed = smoothKeypoints(prevKeypointsRef.current, raw, 0.7);
           prevKeypointsRef.current = smoothed;
           setKeypoints(smoothed);
+        }
+        if (result?.landmarks?.[0]) {
+          const imgKps: PoseKeypoint[] = result.landmarks[0].map((lm) => ({
+            x: lm.x,
+            y: lm.y,
+            z: lm.z ?? 0,
+            visibility: lm.visibility ?? 0,
+          }));
+          setImageKeypoints(imgKps);
         }
 
         frameCount += 1;
@@ -112,5 +124,5 @@ export function usePose(
     };
   }, [cameraReady, videoRef]);
 
-  return { keypoints, fps, modelStatus, modelError };
+  return { keypoints, imageKeypoints, fps, modelStatus, modelError };
 }

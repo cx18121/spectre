@@ -6,6 +6,7 @@ import { CameraView } from './CameraView';
 import { AvatarCanvas } from './AvatarCanvas';
 import { CalibrationOverlay } from './CalibrationOverlay';
 import { HitFlash } from './HitFlash';
+import { PoseOverlay } from './PoseOverlay';
 import { MatchEndScreen } from './MatchEndScreen';
 import { StatusBar } from './StatusBar';
 import type { GamePhase, MatchEnd, SocketStatus } from '../hooks/useGameSocket';
@@ -44,7 +45,7 @@ export function GameScreen({
 }: GameScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { error: cameraError, ready: cameraReady } = useCamera(videoRef);
-  const { keypoints, fps, modelStatus, modelError } = usePose(videoRef, cameraReady);
+  const { keypoints, imageKeypoints, fps, modelStatus, modelError } = usePose(videoRef, cameraReady);
 
   // Calibration runs while phase === 'calibration'. When it completes, send
   // calibration_done and locally advance to 'match' (the current server build
@@ -109,6 +110,7 @@ export function GameScreen({
   return (
     <div className="game-screen">
       <CameraView ref={videoRef} error={cameraError} />
+      <PoseOverlay keypoints={imageKeypoints} />
 
       <AvatarCanvas keypoints={keypoints} hitRegion={lastHit?.region ?? null} />
 
