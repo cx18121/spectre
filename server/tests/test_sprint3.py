@@ -161,6 +161,32 @@ def test_game_loop_not_started_before_calibration():
                 assert r.game_loop is None
 
 
+def test_round1_start_broadcast_on_match_start():
+    from fastapi.testclient import TestClient
+    from main import app, room_manager
+
+    with TestClient(app) as client:
+        room_code = client.app.state.default_room
+        r = room_manager.get_room(room_code)
+
+        with client.websocket_connect(f"/ws/spectator/{room_code}") as spec:
+            with client.websocket_connect(f"/ws/player/{room_code}") as ws1:
+                ws1.receive_text()  # joined
+                ws1.receive_text()  # calibration_start
+                with client.websocket_connect(f"/ws/player/{room_code}") as ws2:
+                    ws2.receive_text()  # joined
+                    ws2.receive_text()  # calibration_start
+                    ws1.send_text(json.dumps({"type": "calibration_done", "reference_velocity": 3.0}))
+                    ws1.send_text(json.dumps({"type": "ping", "t": 0.0}))
+                    ws1.receive_text()  # pong
+                    ws2.send_text(json.dumps({"type": "calibration_done", "reference_velocity": 3.0}))
+                    ws2.receive_text()  # match_start
+                    # Spectator should receive round_start for round 1
+                    round_start = json.loads(spec.receive_text())
+                    assert round_start["type"] == "round_start"
+                    assert round_start["round_number"] == 1
+
+
 def test_calibration_triggers_game_loop():
     from fastapi.testclient import TestClient
     from main import app, room_manager

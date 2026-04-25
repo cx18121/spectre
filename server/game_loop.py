@@ -45,6 +45,7 @@ class GameLoop:
 
     async def run(self) -> None:
         self.running = True
+        await self._broadcast(MsgRoundStart(round_number=self.room.round_number).model_dump_json())
         target_dt = 1.0 / 60
         loop = asyncio.get_event_loop()
         while self.running:
