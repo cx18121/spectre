@@ -105,18 +105,6 @@ function circleTriad(
   layers.rim.circle(x, y, radius * 1.22).fill({ color: SILHOUETTE_COLOR })
 }
 
-function lineTriad(
-  layers: PlayerLayers,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  lineW: number,
-) {
-  layers.main.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: lineW, color: SILHOUETTE_COLOR })
-  layers.glow.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: lineW * 2.5, color: SILHOUETTE_COLOR })
-  layers.rim.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: lineW * 6, color: SILHOUETTE_COLOR })
-}
 
 function paintCapsule(
   gfx: Graphics,
@@ -174,11 +162,16 @@ function drawBoxer(
   width: number,
   height: number,
   screenPoints: ScreenPoint[],
+  glowColor: number,
 ) {
   layers.main.clear()
   layers.glow.clear()
   layers.rim.clear()
   layers.shadow.clear()
+
+  layers.main.tint = 0x000000
+  layers.glow.tint = glowColor
+  layers.rim.tint = glowColor
 
   if (keypoints.length === 0) {
     return
@@ -204,67 +197,82 @@ function drawBoxer(
   const la = screenPoints[LEFT_ANKLE]
   const ra = screenPoints[RIGHT_ANKLE]
 
-  let bodyScale = height * 0.18
+  let bodyScale = height * 0.11
   if (sl?.visible && sr?.visible) {
     bodyScale = Math.max(bodyScale, distance(sl.x, sl.y, sr.x, sr.y))
   } else if (lh?.visible && rh?.visible) {
     bodyScale = Math.max(bodyScale, distance(lh.x, lh.y, rh.x, rh.y) * 1.2)
   }
 
-  const lineW = Math.max(4, bodyScale * 0.04)
-  const jointR = bodyScale * 0.075
-  const gloveR = bodyScale * 0.13
-  const headR = bodyScale * 0.22
+  const torsoThick = bodyScale * 0.10
+  const upperArmThick = bodyScale * 0.068
+  const forearmThick = bodyScale * 0.052
+  const thighThick = bodyScale * 0.095
+  const calfThick = bodyScale * 0.070
+  const gloveR = bodyScale * 0.15
+  const footRx = bodyScale * 0.13
+  const footRy = bodyScale * 0.065
+  const headR = bodyScale * 0.25
+  const jointR = bodyScale * 0.060
 
-  // Spine and hip/shoulder cross-bars
-  if (sl?.visible && sr?.visible && lh?.visible && rh?.visible) {
-    const neckX = (sl.x + sr.x) / 2
-    const neckY = (sl.y + sr.y) / 2
-    const hipX = (lh.x + rh.x) / 2
-    const hipY = (lh.y + rh.y) / 2
-    lineTriad(layers, neckX, neckY, hipX, hipY, lineW)
-    lineTriad(layers, sl.x, sl.y, sr.x, sr.y, lineW)
-    lineTriad(layers, lh.x, lh.y, rh.x, rh.y, lineW)
-  } else {
-    if (sl?.visible && lh?.visible) lineTriad(layers, sl.x, sl.y, lh.x, lh.y, lineW)
-    if (sr?.visible && rh?.visible) lineTriad(layers, sr.x, sr.y, rh.x, rh.y, lineW)
+  // Ground shadow
+  let footY = 0, footCount = 0
+  if (la?.visible) { footY += la.y; footCount += 1 }
+  if (ra?.visible) { footY += ra.y; footCount += 1 }
+  let bodyCenterX = 0
+  if (sl?.visible && sr?.visible) bodyCenterX = (sl.x + sr.x) / 2
+  else if (lh?.visible && rh?.visible) bodyCenterX = (lh.x + rh.x) / 2
+  else if (nose?.visible) bodyCenterX = nose.x
+  if (footCount > 0 && bodyCenterX !== 0) {
+    const groundY = footY / footCount + footRy * 0.6
+    layers.shadow
+      .ellipse(bodyCenterX, groundY, bodyScale * 1.3, bodyScale * 0.35)
+      .fill({ color: 0x000000, alpha: 0.45 })
   }
 
-  // Legs
-  if (lh?.visible && lk?.visible) lineTriad(layers, lh.x, lh.y, lk.x, lk.y, lineW)
-  if (lk?.visible && la?.visible) lineTriad(layers, lk.x, lk.y, la.x, la.y, lineW)
-  if (rh?.visible && rk?.visible) lineTriad(layers, rh.x, rh.y, rk.x, rk.y, lineW)
-  if (rk?.visible && ra?.visible) lineTriad(layers, rk.x, rk.y, ra.x, ra.y, lineW)
+  // Legs (behind torso)
+  if (lh?.visible && lk?.visible) capsuleTriad(layers, lh.x, lh.y, lk.x, lk.y, thighThick)
+  if (lk?.visible && la?.visible) capsuleTriad(layers, lk.x, lk.y, la.x, la.y, calfThick)
+  if (la?.visible) ellipseTriad(layers, la.x, la.y + footRy * 0.4, footRx, footRy)
+  if (rh?.visible && rk?.visible) capsuleTriad(layers, rh.x, rh.y, rk.x, rk.y, thighThick)
+  if (rk?.visible && ra?.visible) capsuleTriad(layers, rk.x, rk.y, ra.x, ra.y, calfThick)
+  if (ra?.visible) ellipseTriad(layers, ra.x, ra.y + footRy * 0.4, footRx, footRy)
 
-  // Arms
-  if (sl?.visible && le?.visible) lineTriad(layers, sl.x, sl.y, le.x, le.y, lineW)
-  if (le?.visible && lw?.visible) lineTriad(layers, le.x, le.y, lw.x, lw.y, lineW)
-  if (sr?.visible && re?.visible) lineTriad(layers, sr.x, sr.y, re.x, re.y, lineW)
-  if (re?.visible && rw?.visible) lineTriad(layers, re.x, re.y, rw.x, rw.y, lineW)
+  // Torso
+  if (sl?.visible && sr?.visible && lh?.visible && rh?.visible) {
+    quadTriad(layers, sl.x, sl.y, sr.x, sr.y, rh.x, rh.y, lh.x, lh.y)
+  } else {
+    if (sl?.visible && lh?.visible) capsuleTriad(layers, sl.x, sl.y, lh.x, lh.y, torsoThick)
+    if (sr?.visible && rh?.visible) capsuleTriad(layers, sr.x, sr.y, rh.x, rh.y, torsoThick)
+  }
+  if (lh?.visible && rh?.visible) capsuleTriad(layers, lh.x, lh.y, rh.x, rh.y, torsoThick * 0.9)
+  if (sl?.visible && sr?.visible) capsuleTriad(layers, sl.x, sl.y, sr.x, sr.y, torsoThick)
 
   // Neck + head
   if (sl?.visible && sr?.visible) {
     const neckX = (sl.x + sr.x) / 2
     const neckY = (sl.y + sr.y) / 2
     const headX = nose?.visible ? nose.x : neckX
-    const headY = nose?.visible ? nose.y : neckY - headR
-    lineTriad(layers, neckX, neckY, headX, headY, lineW)
+    const headY = nose?.visible ? nose.y - headR * 0.05 : neckY - headR * 1.05
+    capsuleTriad(layers, neckX, neckY, headX, headY + headR * 0.5, torsoThick * 0.8)
     circleTriad(layers, headX, headY, headR)
   } else if (nose?.visible) {
     circleTriad(layers, nose.x, nose.y, headR)
   }
 
-  // Joints
+  // Arms (on top so gloves render over torso)
+  if (sl?.visible && le?.visible) capsuleTriad(layers, sl.x, sl.y, le.x, le.y, upperArmThick)
+  if (le?.visible && lw?.visible) capsuleTriad(layers, le.x, le.y, lw.x, lw.y, forearmThick)
+  if (lw?.visible) circleTriad(layers, lw.x, lw.y, gloveR)
+  if (sr?.visible && re?.visible) capsuleTriad(layers, sr.x, sr.y, re.x, re.y, upperArmThick)
+  if (re?.visible && rw?.visible) capsuleTriad(layers, re.x, re.y, rw.x, rw.y, forearmThick)
+  if (rw?.visible) circleTriad(layers, rw.x, rw.y, gloveR)
+
+  // Joint dots
   if (le?.visible) circleTriad(layers, le.x, le.y, jointR)
   if (re?.visible) circleTriad(layers, re.x, re.y, jointR)
-  if (lk?.visible) circleTriad(layers, lk.x, lk.y, jointR)
-  if (rk?.visible) circleTriad(layers, rk.x, rk.y, jointR)
-
-  // Hands (gloves) and feet
-  if (lw?.visible) circleTriad(layers, lw.x, lw.y, gloveR)
-  if (rw?.visible) circleTriad(layers, rw.x, rw.y, gloveR)
-  if (la?.visible) circleTriad(layers, la.x, la.y, jointR * 0.7)
-  if (ra?.visible) circleTriad(layers, ra.x, ra.y, jointR * 0.7)
+  if (lk?.visible) circleTriad(layers, lk.x, lk.y, jointR * 0.85)
+  if (rk?.visible) circleTriad(layers, rk.x, rk.y, jointR * 0.85)
 }
 
 function createPoseBuffer() {
@@ -314,11 +322,11 @@ function createPlayerLayers(parent: Container): PlayerLayers {
   const glow = new Graphics()
   const main = new Graphics()
 
-  rim.filters = [new BlurFilter({ strength: 20, quality: 4 })]
-  rim.alpha = 0.40
+  rim.filters = [new BlurFilter({ strength: 10, quality: 3 })]
+  rim.alpha = 0.50
 
-  glow.filters = [new BlurFilter({ strength: 8, quality: 4 })]
-  glow.alpha = 0.75
+  glow.filters = [new BlurFilter({ strength: 4, quality: 3 })]
+  glow.alpha = 0.70
 
   trail.filters = [new BlurFilter({ strength: 6, quality: 2 })]
 
@@ -449,7 +457,8 @@ export function PixiCanvas({ gameState }: PixiCanvasProps) {
             : next
           const side: Side = slot === 0 ? 'left' : 'right'
           const currentScreenPts = screenPointBuffersRef.current[slot]
-          drawBoxer(layers, pose, side, w, h, currentScreenPts)
+          const glowColor = slot === 0 ? PLAYER_GLOW_COLORS[0] : PLAYER_GLOW_COLORS[1]
+          drawBoxer(layers, pose, side, w, h, currentScreenPts, glowColor)
 
           // Motion blur trail: ghost arms at previous frame's positions when moving fast
           layers.trail.clear()
@@ -467,9 +476,9 @@ export function PixiCanvas({ gameState }: PixiCanvasProps) {
               const slPrev = armTrail.pts[TRAIL_LEFT_SHOULDER]
               const srPrev = armTrail.pts[TRAIL_RIGHT_SHOULDER]
               const bodyScale = slPrev.visible && srPrev.visible
-                ? Math.max(h * 0.28, Math.hypot(srPrev.x - slPrev.x, srPrev.y - slPrev.y))
-                : h * 0.28
-              const lineW = Math.max(4, bodyScale * 0.04)
+                ? Math.max(h * 0.11, Math.hypot(srPrev.x - slPrev.x, srPrev.y - slPrev.y))
+                : h * 0.11
+              const lineW = Math.max(3, bodyScale * 0.07)
               layers.trail.alpha = Math.min(0.40, maxVel / (TRAIL_VEL_THRESHOLD_PX * 8))
               drawArmTrailFromPts(layers.trail, armTrail.pts, lineW)
             }
