@@ -6,10 +6,10 @@ export type SfxName =
   | 'match_win'
 
 const audioFiles: Record<SfxName, string> = {
-  hit_light: `${import.meta.env.BASE_URL}sfx/hit_light.ogg`,
-  hit_heavy: `${import.meta.env.BASE_URL}sfx/hit_heavy.ogg`,
+  hit_light: `${import.meta.env.BASE_URL}sfx/punch.mp3`,
+  hit_heavy: `${import.meta.env.BASE_URL}sfx/kick.mp3`,
   round_bell: `${import.meta.env.BASE_URL}sfx/round_bell.ogg`,
-  round_end: `${import.meta.env.BASE_URL}sfx/round_end.ogg`,
+  round_end: `${import.meta.env.BASE_URL}sfx/death.mp3`,
   match_win: `${import.meta.env.BASE_URL}sfx/match_win.ogg`,
 }
 
@@ -104,6 +104,18 @@ class SfxPlayer {
 
 export const sfx = new SfxPlayer()
 
+let soundtrackAudio: HTMLAudioElement | null = null
+
+function startSoundtrack() {
+  if (soundtrackAudio) return
+  try {
+    soundtrackAudio = new Audio(`${import.meta.env.BASE_URL}sfx/soundtrack.mp3`)
+    soundtrackAudio.loop = true
+    soundtrackAudio.volume = 0.35
+    soundtrackAudio.play().catch(() => {})
+  } catch {}
+}
+
 export function unlockSfx() {
   audioUnlocked = true
   try {
@@ -112,5 +124,6 @@ export function unlockSfx() {
   } catch (error) {
     console.warn('audio unlock failed', error)
   }
+  startSoundtrack()
   document.body.classList.add('audio-ready')
 }
