@@ -18,7 +18,6 @@ interface ScreenPoint {
 }
 
 const SILHOUETTE_COLOR = 0x000000
-const BONE_WIDTH = 12
 const JOINT_RADIUS = 8
 const VISIBILITY_THRESHOLD = 0.3
 const DEFAULT_TICK_INTERVAL_MS = 16
@@ -79,16 +78,23 @@ function drawSkeleton(
   for (const [a, b] of CONNECTIONS) {
     const pa = screenPoints[a]
     const pb = screenPoints[b]
-    if (!pa || !pb) {
+    if (!pa || !pb || !pa.visible || !pb.visible) {
       continue
     }
-    if (!pa.visible || !pb.visible) {
+    const dx = pb.x - pa.x
+    const dy = pb.y - pa.y
+    const length = Math.hypot(dx, dy)
+    if (length < 1) {
       continue
     }
+    const radius = Math.max(4, length * 0.3)
+    const nx = (-dy / length) * radius
+    const ny = (dx / length) * radius
     gfx
-      .moveTo(pa.x, pa.y)
-      .lineTo(pb.x, pb.y)
-      .stroke({ color: SILHOUETTE_COLOR, width: BONE_WIDTH, cap: 'round', join: 'round' })
+      .poly([pa.x + nx, pa.y + ny, pb.x + nx, pb.y + ny, pb.x - nx, pb.y - ny, pa.x - nx, pa.y - ny])
+      .fill({ color: SILHOUETTE_COLOR })
+    gfx.circle(pa.x, pa.y, radius).fill({ color: SILHOUETTE_COLOR })
+    gfx.circle(pb.x, pb.y, radius).fill({ color: SILHOUETTE_COLOR })
   }
 
   for (let index = 0; index < keypoints.length; index += 1) {
