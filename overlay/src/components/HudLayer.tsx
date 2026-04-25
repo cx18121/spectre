@@ -64,7 +64,7 @@ export function HudLayer({
         </div>
         <div className="timer-stack">
           <div className="timer">{formatTime(remainingTime)}</div>
-          <div className="round-label">Round {round} / 3</div>
+          <div className="round-label">Round {round}</div>
         </div>
         <div className="hp-wrap hp-wrap-right">
           <div className="player-label">← P2</div>
