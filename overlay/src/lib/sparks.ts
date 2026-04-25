@@ -31,7 +31,19 @@ interface Flash {
   color: number
 }
 
-const HEAVY_THRESHOLD = 10
+// Damage range from server/damage.py is roughly 2..25. We compress that
+// into a [0..1] intensity used to interpolate every visual knob, so an 8-dmg
+// jab and a 22-dmg head shot scale continuously instead of falling on
+// either side of a hard threshold.
+const MAX_DAMAGE = 25
+
+function intensityFor(damage: number): number {
+  return Math.max(0.15, Math.min(1, damage / MAX_DAMAGE))
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t
+}
 
 export class SparkEmitter {
   private readonly halo = new Graphics()
@@ -48,12 +60,21 @@ export class SparkEmitter {
   }
 
   emit(x: number, y: number, damage: number) {
-    const heavy = damage >= HEAVY_THRESHOLD
-    const count = (heavy ? 22 : 12) + Math.floor(damage / 2)
+    const t = intensityFor(damage)
+    // Smaller across the board than the previous binary heavy/light pair —
+    // the old "heavy" peaks (count 33, flash 90, shockwave 280) felt like
+    // the screen was exploding on every clean hit.
+    const count = Math.round(lerp(5, 16, t))
+    const baseSpeed = lerp(1.8, 4.2, t)
+    const speedSpread = lerp(2.5, 6, t)
+    const liftBias = lerp(0.4, 1.4, t)
+    const decay = lerp(0.032, 0.02, t)
+    const radiusFloor = lerp(1.4, 3.5, t)
+    const radiusSpread = lerp(1.6, 4, t)
 
     for (let i = 0; i < count; i += 1) {
       const angle = Math.random() * Math.PI * 2
-      const speed = (heavy ? 4 : 2.5) + Math.random() * (heavy ? 8 : 4.5)
+      const speed = baseSpeed + Math.random() * speedSpread
       const colorRoll = Math.random()
       const color =
         colorRoll > 0.7 ? 0xfff4c2 : colorRoll > 0.35 ? 0xffc24a : 0xff5a1f
@@ -62,10 +83,10 @@ export class SparkEmitter {
         x,
         y,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - (heavy ? 1.6 : 0.6),
+        vy: Math.sin(angle) * speed - liftBias,
         life: 1,
-        decay: heavy ? 0.018 : 0.026,
-        radius: (heavy ? 5 : 3) + Math.random() * (heavy ? 7 : 4),
+        decay,
+        radius: radiusFloor + Math.random() * radiusSpread,
         color,
       })
     }
@@ -73,21 +94,21 @@ export class SparkEmitter {
     this.shockwaves.push({
       x,
       y,
-      radius: heavy ? 24 : 14,
-      maxRadius: heavy ? 280 : 160,
-      growth: heavy ? 0.22 : 0.18,
+      radius: lerp(8, 18, t),
+      maxRadius: lerp(55, 175, t),
+      growth: lerp(0.16, 0.22, t),
       alpha: 1,
-      width: heavy ? 8 : 5,
-      color: heavy ? 0xff7a2a : 0xffd84d,
+      width: lerp(2.5, 5.5, t),
+      color: t > 0.55 ? 0xff7a2a : 0xffd84d,
     })
 
     this.flashes.push({
       x,
       y,
-      radius: heavy ? 90 : 50,
-      alpha: heavy ? 0.85 : 0.55,
-      decay: heavy ? 0.06 : 0.09,
-      color: heavy ? 0xff8a3a : 0xffe07a,
+      radius: lerp(18, 60, t),
+      alpha: lerp(0.45, 0.78, t),
+      decay: lerp(0.11, 0.07, t),
+      color: t > 0.55 ? 0xff8a3a : 0xffe07a,
     })
   }
 
