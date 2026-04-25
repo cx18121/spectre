@@ -47,6 +47,7 @@ class RoomState:
     wins: list[int] = field(default_factory=lambda: [0, 0])
     round_start_time: float | None = None
     match_over: bool = False
+    disconnect_timers: dict = field(default_factory=dict)  # slot_num -> asyncio.Task
 
 
 class RoomManager:

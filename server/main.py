@@ -12,7 +12,10 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from game_loop import GameLoop
-from protocol import MsgCalibrationStart, MsgJoined, MsgMatchStart, MsgPing, MsgPong, parse_mobile_msg
+from protocol import (
+    MsgCalibrationStart, MsgJoined, MsgMatchEnd, MsgMatchStart,
+    MsgPing, MsgPong, MsgPlayerDisconnected, parse_mobile_msg,
+)
 from qr import print_startup_info
 from rooms import RoomManager, record_pong
 from tunnel import TunnelManager
@@ -28,6 +31,15 @@ log = logging.getLogger(__name__)
 room_manager = RoomManager()
 tunnel_manager = TunnelManager()
 
+_active_tasks: set[asyncio.Task] = set()
+
+
+def _track_task(coro) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    _active_tasks.add(task)
+    task.add_done_callback(_active_tasks.discard)
+    return task
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,15 +53,45 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # Stop all running game loops and close all WebSocket connections
+    for room_code in room_manager.list_rooms():
+        room = room_manager.get_room(room_code)
+        if room is None:
+            continue
+        if room.game_loop is not None:
+            room.game_loop.stop()
+        for slot in room.players.values():
+            if slot.ws is not None:
+                try:
+                    await slot.ws.close()
+                except Exception:
+                    pass
+        for ws in list(room.spectators):
+            try:
+                await ws.close()
+            except Exception:
+                pass
+
+    # Cancel all tracked background tasks
+    if _active_tasks:
+        for task in list(_active_tasks):
+            task.cancel()
+        await asyncio.gather(*_active_tasks, return_exceptions=True)
+
     tunnel_manager.stop()
+    log.info("Server shut down cleanly")
 
 
 app = FastAPI(lifespan=lifespan)
 
 _overlay_dist = Path(__file__).resolve().parent.parent / "overlay" / "dist"
-if _overlay_dist.exists():
+_mobile_dist = Path(__file__).resolve().parent.parent / "mobile" / "dist"
+if _overlay_dist.exists() or _mobile_dist.exists():
     from fastapi.staticfiles import StaticFiles
-    app.mount("/overlay", StaticFiles(directory=str(_overlay_dist), html=True), name="overlay")
+    if _overlay_dist.exists():
+        app.mount("/overlay", StaticFiles(directory=str(_overlay_dist), html=True), name="overlay")
+    if _mobile_dist.exists():
+        app.mount("/mobile", StaticFiles(directory=str(_mobile_dist), html=True), name="mobile")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -94,9 +136,13 @@ async def ws_player(websocket: WebSocket, room_code: str):
 
     await websocket.accept()
     slot = room.players[slot_num]
+
+    # Detect reconnect: player was calibrated and a match is in progress
+    is_reconnect = slot.reference_velocity is not None and room.game_loop is not None
+
     slot.ws = websocket
     slot.connected = True
-    log.info("Player %d connected to room %s", slot_num, room_code)
+    log.info("Player %d %s to room %s", slot_num, "reconnected" if is_reconnect else "connected", room_code)
 
     async def ping_loop():
         import time
@@ -107,7 +153,7 @@ async def ws_player(websocket: WebSocket, room_code: str):
                 break
             await asyncio.sleep(0.5)
 
-    asyncio.create_task(ping_loop())
+    _track_task(ping_loop())
 
     opponent = room.players[3 - slot_num]
     await websocket.send_text(
@@ -117,7 +163,17 @@ async def ws_player(websocket: WebSocket, room_code: str):
             opponent_connected=opponent.connected,
         ).model_dump_json()
     )
-    await websocket.send_text(MsgCalibrationStart().model_dump_json())
+
+    if is_reconnect:
+        # Cancel the forfeit timer and resume the game loop
+        timer = room.disconnect_timers.pop(slot_num, None)
+        if timer is not None:
+            timer.cancel()
+        if room.game_loop is not None and room.game_loop.paused:
+            room.game_loop.paused = False
+            log.info("Game loop resumed for room %s after player %d reconnect", room_code, slot_num)
+    else:
+        await websocket.send_text(MsgCalibrationStart().model_dump_json())
 
     try:
         while True:
@@ -136,10 +192,8 @@ async def ws_player(websocket: WebSocket, room_code: str):
                 if room.game_loop is not None:
                     room.game_loop.add_pose_frame(slot_num, msg)
             elif msg.type == "ping":
-                # Client-originated ping: echo back for client-side RTT display
                 await websocket.send_text(MsgPong(t=msg.t).model_dump_json())
             elif msg.type == "pong":
-                # Server-originated ping echoed back: record server-side RTT
                 record_pong(slot, msg.t)
             elif msg.type == "calibration_done":
                 slot.reference_velocity = msg.reference_velocity
@@ -150,7 +204,7 @@ async def ws_player(websocket: WebSocket, room_code: str):
                 ):
                     game_loop = GameLoop(room)
                     room.game_loop = game_loop
-                    asyncio.create_task(game_loop.run())
+                    _track_task(game_loop.run())
                     log.info("Game loop started for room %s after calibration", room_code)
                     match_start_json = MsgMatchStart().model_dump_json()
                     for p in room.players.values():
@@ -165,10 +219,53 @@ async def ws_player(websocket: WebSocket, room_code: str):
         slot.connected = False
         slot.ws = None
         log.info("Player %d disconnected from room %s", slot_num, room_code)
-        if room.game_loop is not None and not any(p.connected for p in room.players.values()):
-            room.game_loop.stop()
-            room.game_loop = None
-            log.info("Game loop stopped for room %s", room_code)
+
+        if room.game_loop is not None:
+            opponent_connected = any(p.connected for p in room.players.values())
+            if opponent_connected:
+                # Pause match and give the disconnected player 30s to reconnect
+                room.game_loop.paused = True
+                disconnected_msg = MsgPlayerDisconnected(player=slot_num).model_dump_json()
+                for ws in list(room.spectators):
+                    try:
+                        await ws.send_text(disconnected_msg)
+                    except Exception:
+                        pass
+                opponent_ws = room.players[3 - slot_num].ws
+                if opponent_ws is not None:
+                    try:
+                        await opponent_ws.send_text(disconnected_msg)
+                    except Exception:
+                        pass
+
+                async def _forfeit_timer(s=slot_num, r=room, rc=room_code):
+                    await asyncio.sleep(30)
+                    if not r.players[s].connected and r.game_loop is not None:
+                        winner = 3 - s
+                        r.match_over = True
+                        r.game_loop.stop()
+                        r.game_loop = None
+                        end_msg = MsgMatchEnd(winner=winner).model_dump_json()
+                        for p in r.players.values():
+                            if p.ws is not None:
+                                try:
+                                    await p.ws.send_text(end_msg)
+                                except Exception:
+                                    pass
+                        for ws in list(r.spectators):
+                            try:
+                                await ws.send_text(end_msg)
+                            except Exception:
+                                pass
+                        log.info("Player %d forfeited room %s after 30s disconnect", s, rc)
+                    r.disconnect_timers.pop(s, None)
+
+                room.disconnect_timers[slot_num] = _track_task(_forfeit_timer())
+            else:
+                # All players gone — stop immediately
+                room.game_loop.stop()
+                room.game_loop = None
+                log.info("Game loop stopped for room %s", room_code)
 
 
 @app.websocket("/ws/spectator/{room_code}")

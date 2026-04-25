@@ -39,6 +39,8 @@ class GameLoop:
         # Per-player cooldown: last tick a hit was registered as attacker
         self._last_hit_tick: dict[int, int] = {1: -999, 2: -999}
 
+        self.paused = False
+
     def add_pose_frame(self, player_slot: int, frame: object) -> None:
         """Called from the WebSocket handler each time a pose_frame arrives."""
         self._buffers[player_slot].append((time.time(), frame))
@@ -49,6 +51,9 @@ class GameLoop:
         target_dt = 1.0 / 60
         loop = asyncio.get_event_loop()
         while self.running:
+            if self.paused:
+                await asyncio.sleep(0.1)
+                continue
             t0 = loop.time()
             await self._tick()
             elapsed = loop.time() - t0

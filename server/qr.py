@@ -3,7 +3,7 @@ import qrcode
 
 
 def print_startup_info(public_url: str, room_code: str) -> None:
-    join_url = f"{public_url}/join?room={room_code}"
+    mobile_url = f"{public_url}/mobile?server={public_url}&room={room_code}&slot=2"
     overlay_url = f"{public_url}/overlay?server={public_url}&room={room_code}"
 
     print()
@@ -11,8 +11,8 @@ def print_startup_info(public_url: str, room_code: str) -> None:
     print(f"Public URL: {public_url}")
     print(f"Room code:  {room_code}")
     print()
-    print("Share this URL with your opponent:")
-    print(f"  {join_url}")
+    print("Share this URL with your teammate (opens on their phone):")
+    print(f"  {mobile_url}")
     print()
     print("Open the overlay at:")
     print(f"  {overlay_url}")
@@ -20,6 +20,6 @@ def print_startup_info(public_url: str, room_code: str) -> None:
     print("Scan to join on mobile:")
 
     qr = qrcode.QRCode()
-    qr.add_data(join_url)
+    qr.add_data(mobile_url)
     qr.make(fit=True)
     qr.print_ascii(invert=True)
