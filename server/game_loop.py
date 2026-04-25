@@ -182,7 +182,7 @@ class GameLoop:
                 return
             room.round_number += 1
             room.round_start_time = None
-            self.hp = [100, 100]
+            self.hp = [200, 200]
             await self._broadcast(MsgRoundStart(round_number=room.round_number).model_dump_json())
             return
 
