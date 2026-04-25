@@ -28,6 +28,7 @@ interface PlayerLayers {
 }
 
 const SILHOUETTE_COLOR = 0xffffff
+const PLAYER_GLOW_COLORS = [0x33aaff, 0xff3322] as const
 const VISIBILITY_THRESHOLD = 0.3
 const DEFAULT_TICK_INTERVAL_MS = 16
 const TICK_EWMA_ALPHA = 0.1
@@ -64,13 +65,9 @@ function projectKeypoint(
   height: number,
   out: ScreenPoint,
 ) {
-  // Body spans ~1.1 world units top-to-bottom (±0.55 from hip origin).
-  // Reserve 14% top (HUD) + 4% bottom as padding and fit within the rest.
-  const usable = height * 0.82
-  const scale = usable / 1.1
+  const scale = height * 0.55
   const centerX = side === 'left' ? width * 0.25 : width * 0.75
-  // Position lower: top of usable zone + 58% of usable height
-  const centerY = height * 0.14 + usable * 0.58
+  const centerY = height * 0.575
   const flip = side === 'right' ? -1 : 1
   out.x = centerX + keypoint.x * scale * flip
   out.y = centerY + keypoint.y * scale
@@ -83,10 +80,9 @@ function projectXY(
   width: number,
   height: number,
 ): { x: number; y: number } {
-  const usable = height * 0.82
-  const scale = usable / 1.1
+  const scale = height * 0.55
   const centerX = side === 'left' ? width * 0.25 : width * 0.75
-  const centerY = height * 0.14 + usable * 0.58
+  const centerY = height * 0.575
   const flip = side === 'right' ? -1 : 1
   return {
     x: centerX + point.x * scale * flip,
@@ -120,6 +116,55 @@ function lineTriad(
   layers.main.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: lineW, color: SILHOUETTE_COLOR })
   layers.glow.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: lineW * 2.5, color: SILHOUETTE_COLOR })
   layers.rim.moveTo(x1, y1).lineTo(x2, y2).stroke({ width: lineW * 6, color: SILHOUETTE_COLOR })
+}
+
+function paintCapsule(
+  gfx: Graphics,
+  ax: number, ay: number, bx: number, by: number,
+  radius: number, color: number,
+) {
+  const dx = bx - ax
+  const dy = by - ay
+  const len = Math.hypot(dx, dy)
+  if (len < 0.5) {
+    gfx.circle(ax, ay, radius).fill({ color })
+    return
+  }
+  const nx = (-dy / len) * radius
+  const ny = (dx / len) * radius
+  gfx.poly([ax + nx, ay + ny, bx + nx, by + ny, bx - nx, by - ny, ax - nx, ay - ny]).fill({ color })
+  gfx.circle(ax, ay, radius).fill({ color })
+  gfx.circle(bx, by, radius).fill({ color })
+}
+
+function capsuleTriad(
+  layers: PlayerLayers,
+  ax: number, ay: number, bx: number, by: number,
+  radius: number,
+) {
+  paintCapsule(layers.main, ax, ay, bx, by, radius, SILHOUETTE_COLOR)
+  paintCapsule(layers.glow, ax, ay, bx, by, radius * 1.06, SILHOUETTE_COLOR)
+  paintCapsule(layers.rim, ax, ay, bx, by, radius * 1.20, SILHOUETTE_COLOR)
+}
+
+function ellipseTriad(
+  layers: PlayerLayers,
+  x: number, y: number, rx: number, ry: number,
+) {
+  layers.main.ellipse(x, y, rx, ry).fill({ color: SILHOUETTE_COLOR })
+  layers.glow.ellipse(x, y, rx * 1.06, ry * 1.06).fill({ color: SILHOUETTE_COLOR })
+  layers.rim.ellipse(x, y, rx * 1.20, ry * 1.20).fill({ color: SILHOUETTE_COLOR })
+}
+
+function quadTriad(
+  layers: PlayerLayers,
+  ax: number, ay: number, bx: number, by: number,
+  cx: number, cy: number, dx: number, dy: number,
+) {
+  const v = [ax, ay, bx, by, cx, cy, dx, dy]
+  layers.main.poly(v).fill({ color: SILHOUETTE_COLOR })
+  layers.glow.poly(v).fill({ color: SILHOUETTE_COLOR })
+  layers.rim.poly(v).fill({ color: SILHOUETTE_COLOR })
 }
 
 function drawBoxer(
