@@ -1,8 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { HpPair, PlayerSlot } from '../protocol'
 
-const healthbarUrl = `${import.meta.env.BASE_URL}healthbar.png`
-
 interface HudLayerProps {
   connected: boolean
   disconnectedPlayer: PlayerSlot | null
@@ -62,7 +60,6 @@ export function HudLayer({
           <div className="hp-track">
             <div className="hp-fill" style={p1FillStyle} />
             <div className="hp-number">{p1Display}</div>
-            <div className="hp-frame" style={{ backgroundImage: `url(${healthbarUrl})` }} />
           </div>
         </div>
         <div className="timer-stack">
@@ -74,7 +71,6 @@ export function HudLayer({
           <div className="hp-track">
             <div className="hp-fill" style={p2FillStyle} />
             <div className="hp-number">{p2Display}</div>
-            <div className="hp-frame" style={{ backgroundImage: `url(${healthbarUrl})` }} />
           </div>
         </div>
       </div>
