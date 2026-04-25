@@ -1,9 +1,5 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
-import {
-  FilesetResolver,
-  PoseLandmarker,
-  type PoseLandmarkerResult,
-} from '@mediapipe/tasks-vision';
+import { useEffect, useState, type RefObject } from 'react';
+import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
 import type { PoseKeypoint } from '../protocol';
 
 export type ModelStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -20,6 +16,14 @@ const WASM_URL =
   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm';
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+
+// `requestVideoFrameCallback` types aren't in the lib.dom defaults shipped
+// with this version of TypeScript. Cast through this shape rather than
+// pulling in a separate @types package.
+type RvfcVideoElement = HTMLVideoElement & {
+  requestVideoFrameCallback?: (cb: (now: DOMHighResTimeStamp) => void) => number;
+  cancelVideoFrameCallback?: (id: number) => void;
+};
 
 export function usePose(
   videoRef: RefObject<HTMLVideoElement | null>,
@@ -42,7 +46,67 @@ export function usePose(
     let fpsWindowStart = performance.now();
     let lastTimestampMs = 0;
 
-    const useRvfc = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+    // Drive the loop from camera-frame commits (when supported) instead of
+    // display refresh — fires the moment a fresh frame is available, not
+    // up to 16ms later. Falls back to rAF on older browsers.
+    const useRvfc = typeof HTMLVideoElement !== 'undefined'
+      && 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+
+    function scheduleNext() {
+      if (cancelled) return;
+      const video = videoRef.current as RvfcVideoElement | null;
+      if (useRvfc && video?.requestVideoFrameCallback) {
+        rvfcId = video.requestVideoFrameCallback(loop);
+      } else {
+        rafId = requestAnimationFrame(loop);
+      }
+    }
+
+    function loop(now: DOMHighResTimeStamp) {
+      if (cancelled) return;
+      const video = videoRef.current;
+      if (video && landmarker && video.readyState >= 2) {
+        // detectForVideo requires monotonically increasing timestamps.
+        let timestampMs = Math.floor(now);
+        if (timestampMs <= lastTimestampMs) timestampMs = lastTimestampMs + 1;
+        lastTimestampMs = timestampMs;
+        try {
+          const result = landmarker.detectForVideo(video, timestampMs);
+          if (result?.worldLandmarks?.[0]) {
+            const raw: PoseKeypoint[] = result.worldLandmarks[0].map((lm) => ({
+              x: lm.x,
+              y: lm.y,
+              z: lm.z,
+              visibility: lm.visibility ?? 0,
+            }));
+            // No EMA smoothing on mobile — overlay extrapolation handles it
+            // and the smoothing was just one extra frame of lag for fast
+            // motion (punches).
+            setKeypoints(raw);
+          }
+          if (result?.landmarks?.[0]) {
+            const imgKps: PoseKeypoint[] = result.landmarks[0].map((lm) => ({
+              x: lm.x,
+              y: lm.y,
+              z: lm.z ?? 0,
+              visibility: lm.visibility ?? 0,
+            }));
+            setImageKeypoints(imgKps);
+          }
+
+          frameCount += 1;
+          const elapsed = performance.now() - fpsWindowStart;
+          if (elapsed >= 1000) {
+            setFps(Math.round((frameCount * 1000) / elapsed));
+            frameCount = 0;
+            fpsWindowStart = performance.now();
+          }
+        } catch {
+          /* MediaPipe occasionally throws on video tear-down; ignore one frame */
+        }
+      }
+      scheduleNext();
+    }
 
     async function init() {
       setModelStatus('loading');
@@ -54,39 +118,8 @@ export function usePose(
             modelAssetPath: MODEL_URL,
             delegate: 'GPU',
           },
-          runningMode: 'LIVE_STREAM',
+          runningMode: 'VIDEO',
           numPoses: 1,
-          resultListener: (result: PoseLandmarkerResult) => {
-            if (cancelled) return;
-
-            if (result?.worldLandmarks?.[0]) {
-              const raw: PoseKeypoint[] = result.worldLandmarks[0].map((lm) => ({
-                x: lm.x,
-                y: lm.y,
-                z: lm.z,
-                visibility: lm.visibility ?? 0,
-              }));
-              setKeypoints(raw);
-            }
-            if (result?.landmarks?.[0]) {
-              const imgKps: PoseKeypoint[] = result.landmarks[0].map((lm) => ({
-                x: lm.x,
-                y: lm.y,
-                z: lm.z ?? 0,
-                visibility: lm.visibility ?? 0,
-              }));
-              setImageKeypoints(imgKps);
-            }
-
-            frameCount += 1;
-            const now = performance.now();
-            const elapsed = now - fpsWindowStart;
-            if (elapsed >= 1000) {
-              setFps(Math.round((frameCount * 1000) / elapsed));
-              frameCount = 0;
-              fpsWindowStart = now;
-            }
-          },
         });
         if (cancelled) {
           lm.close();
@@ -94,43 +127,11 @@ export function usePose(
         }
         landmarker = lm;
         setModelStatus('ready');
-
-        const video = videoRef.current;
-        if (useRvfc && video) {
-          rvfcId = (video as unknown as {
-            requestVideoFrameCallback: (cb: (now: number) => void) => number;
-          }).requestVideoFrameCallback(loop);
-        } else {
-          rafId = requestAnimationFrame(loop);
-        }
+        scheduleNext();
       } catch (err) {
         if (cancelled) return;
         setModelStatus('error');
         setModelError(err instanceof Error ? err.message : String(err));
-      }
-    }
-
-    function loop(now: DOMHighResTimeStamp) {
-      if (cancelled) return;
-      const video = videoRef.current;
-      if (video && landmarker && video.readyState >= 2) {
-        // detectAsync requires monotonically increasing timestamps.
-        let timestampMs = Math.floor(now);
-        if (timestampMs <= lastTimestampMs) timestampMs = lastTimestampMs + 1;
-        lastTimestampMs = timestampMs;
-        try {
-          landmarker.detectAsync(video, timestampMs);
-        } catch {
-          /* MediaPipe occasionally throws on video tear-down; ignore one frame */
-        }
-      }
-      if (cancelled) return;
-      if (useRvfc && video) {
-        rvfcId = (video as unknown as {
-          requestVideoFrameCallback: (cb: (now: number) => void) => number;
-        }).requestVideoFrameCallback(loop);
-      } else {
-        rafId = requestAnimationFrame(loop as FrameRequestCallback);
       }
     }
 
@@ -140,12 +141,9 @@ export function usePose(
       cancelled = true;
       if (rafId) cancelAnimationFrame(rafId);
       if (rvfcId) {
-        const video = videoRef.current;
-        const cancelFn = (video as unknown as {
-          cancelVideoFrameCallback?: (id: number) => void;
-        } | null)?.cancelVideoFrameCallback;
-        if (video && typeof cancelFn === 'function') {
-          cancelFn.call(video, rvfcId);
+        const video = videoRef.current as RvfcVideoElement | null;
+        if (video?.cancelVideoFrameCallback) {
+          video.cancelVideoFrameCallback(rvfcId);
         }
       }
       if (landmarker) landmarker.close();

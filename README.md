@@ -1,178 +1,140 @@
-# Shadow Fight Real-Time -- Development Guide
+# Shadow Fight Real-Time
 
-A real-time 1v1 fighting game where two remote players fight using their phone cameras. Each phone runs pose estimation in-browser via MediaPipe, streams keypoints to a peer-hosted game server, and both players watch a Shadow Fight 2 style silhouette match in a shared browser overlay.
+A 1v1 fighting game where two players throw real punches and kicks at their phone cameras and watch their silhouettes fight in a shared browser overlay. Built for the Cornell Claude Claude Builders Club Hackathon, spring 2026.
 
-No accounts. No cloud hosting. No database. One player runs the server on their laptop, Cloudflare Tunnel makes it reachable from anywhere.
+Each phone runs MediaPipe pose estimation in the browser and streams keypoints to a Python game server. The server runs hit detection, damage, and round logic. A separate browser overlay renders the match in a Shadow Fight 2 style, with a live AI commentator powered by the Claude API and ElevenLabs.
 
----
+No accounts. No cloud. One player runs the server on their laptop, and Cloudflare Tunnel or Tailscale makes it reachable from anywhere.
 
-## Architecture
+## How it works
 
 ```
 Phone A (mobile client)          Phone B (mobile client)
-  camera -> MediaPipe poses          camera -> MediaPipe poses
-        |                                  |
-        +-----------> Game Server <--------+
-                      (Python, FastAPI)
-                      - 60Hz game loop
-                      - hit detection
-                      - damage + rounds
-                      - Cloudflare Tunnel
-                             |
-                      Overlay Renderer
-                      (PixiJS, laptop/TV)
-                      - silhouette render
-                      - HP bars, timer
-                      - sparks + SFX
+  camera + MediaPipe                camera + MediaPipe
+        \                                  /
+         \________ pose keypoints ________/
+                          |
+                    Game Server
+                  (Python, FastAPI)
+                  60Hz simulation
+                  hit detection
+                  damage and rounds
+                  Claude commentator
+                          |
+                    Overlay Renderer
+                    (React + PixiJS)
+                    silhouettes, HP bars,
+                    sparks, subtitles, TTS
 ```
 
----
+## Setup
 
-## For the Development Team (3 People)
-
-This project is designed to be built concurrently by 3 people. Each person owns one component end to end.
-
-| Person | Component | Plan file |
-|--------|-----------|-----------|
-| A | Game server (Python) | [docs/plans/server.md](docs/plans/server.md) |
-| B | Mobile capture client (React + MediaPipe) | [docs/plans/mobile.md](docs/plans/mobile.md) |
-| C | Overlay renderer (React + PixiJS) | [docs/plans/overlay.md](docs/plans/overlay.md) |
-
-Read [docs/plans/project.md](docs/plans/project.md) first. It has the kickoff steps, shared protocol definition, checkpoint criteria, and integration sync points.
-
-### How to start
-
-**Step 1 -- All three together (~30 min)**
-
-One person scaffolds the repo. Everyone watches. Follow the Kickoff section in `docs/plans/project.md` exactly.
-
-At the end of kickoff, `shared/protocol.ts` is committed and all three Vite/Python projects build without errors.
-
-**Step 2 -- Split and work in parallel**
-
-Each person opens their plan file and works through the tasks in order. Every task has a verification step -- run it before moving to the next task.
-
-B and C each have a mock server defined in their plan files so they are never blocked on A.
-
-**Step 3 -- Checkpoints**
-
-There are 5 checkpoints (0 through 4) defined in `docs/plans/project.md`. Each checkpoint has explicit pass/fail criteria. All three must pass before the team moves to the next sprint.
-
-Checkpoints are not a gate that blocks work -- if A is behind, B and C keep going against their mocks. The checkpoint is a signal to switch from mocks to the real server.
-
-### Using Claude Code
-
-Each person gives their plan file to Claude Code as the task:
-
-> "Work through the tasks in `docs/plans/server.md` in order. Complete each task fully and run the verification command before moving to the next task."
-
-Claude Code will work through the tasks sequentially, run verifications, and stop if something does not pass. When it finishes a sprint, review the output and move on.
-
----
-
-## Running Locally
-
-Requires: Python 3.11+, Node 20+, cloudflared installed.
-
-Install cloudflared:
-- macOS: `brew install cloudflared`
-- Linux: `apt install cloudflared`
-- Windows: `winget install cloudflared`
+You need Python 3.11+, Node 20+, and `cloudflared` if you want internet play.
 
 ```bash
-# Clone and install
 git clone https://github.com/cx18121/claude-hackathon26.git
 cd claude-hackathon26
 
 # Server
-cd server && python3 -m venv .venv && source .venv/bin/activate
+cd server
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+cd ..
 
-# Mobile
-cd mobile && npm install
+# Mobile client
+cd mobile && npm install && cd ..
 
 # Overlay
-cd overlay && npm install
+cd overlay && npm install && cd ..
 ```
 
-Start everything locally (no tunnel, same-wifi mode):
+Install `cloudflared` if you want to play across the internet:
+- macOS: `brew install cloudflared`
+- Linux: `apt install cloudflared`
+- Windows: `winget install cloudflared`
+
+For the AI commentator, drop your keys into `server/.env`:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+ELEVENLABS_API_KEY=...
+```
+
+Both keys are optional. Without `ANTHROPIC_API_KEY` the commentator is disabled. Without `ELEVENLABS_API_KEY` you get text subtitles but no audio.
+
+## Running it
+
+### Same WiFi (laptop + two phones in one room)
 
 ```bash
 bash scripts/dev.sh
 ```
 
-Or start each piece manually:
+This builds both Vite bundles, frees ports 8000/5173/5174, and starts everything. The server prints a room code on startup. Phones reach the server at the LAN IP printed in the launcher banner.
 
-```bash
-# Terminal 1 -- server (LAN mode, no tunnel)
-cd server && TUNNEL=false python main.py
+URLs the script prints:
 
-# Terminal 2 -- mobile dev server
-cd mobile && npm run dev
-
-# Terminal 3 -- overlay dev server
-cd overlay && npm run dev
+```
+Overlay:        http://<LAN_IP>:8000/overlay?room=<CODE>
+Player 1 phone: http://<LAN_IP>:8000/mobile?room=<CODE>&slot=1
+Player 2 phone: http://<LAN_IP>:8000/mobile?room=<CODE>&slot=2
 ```
 
-Mobile URL: `http://localhost:5173?server=http://localhost:8000`  
-Overlay URL: `http://localhost:5174?server=http://localhost:8000&room=<code>`
+### Across the internet (Cloudflare Tunnel)
 
-The server prints the room code on startup.
+```bash
+cd server
+source .venv/bin/activate
+TUNNEL=true python main.py
+```
 
----
+The server prints a `trycloudflare.com` URL and a QR code. Share the URL with the other player. Both phones open `<url>/mobile?slot=1` and `?slot=2`. Open the overlay at `<url>/overlay`.
 
-## Running a Real Match (Internet, Two Locations)
+### Across blocked networks (Tailscale)
 
-1. Player 1 (host) runs the server with tunnel enabled:
-   ```bash
-   cd server && TUNNEL=true python main.py
-   ```
-   The terminal prints a `trycloudflare.com` URL and a QR code.
+If you are on eduroam, hotel WiFi, or anywhere that blocks LAN discovery, use Tailscale instead. Every machine needs Tailscale installed and signed in to the same tailnet.
 
-2. Host shares the URL with Player 2 (or they scan the QR code).
+```bash
+bash scripts/tailscale.sh
+```
 
-3. Both players open the mobile client URL on their phones and join the same room code with different slots (1 and 2).
+The script auto-detects your Tailscale IP, sets up `tailscale serve` for HTTPS (so phone browsers stop blocking the camera), and prints share-ready URLs.
 
-4. Host opens the overlay in a laptop or TV browser.
+## Playing a match
 
-5. Both players complete the calibration flow (3 practice jabs + neutral stance).
+1. Both players open the camera capture URL on their phones/laptops with different slot numbers.
+2. The host opens the overlay on a laptop or TV browser.
+3. Each player completes a short calibration: 3 practice jabs and a neutral stance.
+4. The match starts once both players finish calibrating and are ready.
 
-6. Match starts automatically once both players calibrate.
+Stand sideways to your phone. MediaPipe needs a side-view angle to read depth correctly.
 
----
+## Project layout
 
-## Tech Stack
+```
+server/      Python game server (FastAPI, asyncio, numpy)
+mobile/      React + Vite client that runs MediaPipe in-browser
+overlay/     React + Vite + PixiJS renderer
+shared/      protocol.ts (TypeScript types shared between client and server)
+scripts/     dev.sh (LAN), tunnel.sh (Cloudflare), tailscale.sh (tailnet)
+docs/        Original sprint plans and design notes
+```
 
-| Component | Language / Framework |
-|-----------|----------------------|
-| Server | Python 3.11, FastAPI, uvicorn, asyncio, numpy, pydantic v2 |
-| Mobile | Vite, React 18, TypeScript, @mediapipe/tasks-vision |
-| Overlay | Vite, React 18, TypeScript, pixi.js v8 |
-| Tunnel | cloudflared (trycloudflare.com quick tunnel) |
+## Tech stack
 
----
+| Layer       | Stack                                                          |
+| ----------- | -------------------------------------------------------------- |
+| Server      | Python 3.11, FastAPI, uvicorn, asyncio, numpy, pydantic v2     |
+| Pose        | MediaPipe Tasks Vision (Pose Landmarker)                       |
+| Mobile      | Vite, React 18, TypeScript                                     |
+| Overlay     | Vite, React 18, TypeScript, pixi.js v8                         |
+| Commentator | Claude (Anthropic SDK) + ElevenLabs           |
+| Transport   | WebSockets, Cloudflare Tunnel (quick tunnel) or Tailscale      |
 
-## Known Limitations
+## Notes and known limits
 
-- Rooms are in-memory and ephemeral. Server restart clears all rooms.
-- One room is auto-created on startup. Additional rooms can be created via `POST /rooms`.
-- The game uses delay-based netcode. Latency above ~150ms makes the match feel laggy (a warning is shown).
-- MediaPipe Pose Landmarker requires a side-view camera angle. Front-facing angles produce unreliable depth.
-- Mobile browsers must allow camera access. iOS Safari requires HTTPS, which the Cloudflare tunnel provides.
-- Calibration is per-match. If a player disconnects and reconnects, they recalibrate.
-
----
-
-## Challenges
-
-**Netcode fairness**
-
-The host player has lower latency to the server than the remote player. To compensate, the server measures round-trip time to both players via a 500ms ping loop and applies a fixed input delay equal to `max(rtt_a, rtt_b)` to both players' pose frames before feeding them to the simulation. This is delay-based netcode, the approach used by early Street Fighter netplay. It does not eliminate the latency difference but ensures both players experience the same delay. If RTT exceeds 150ms, both clients display a warning.
-
-**3D pose to 2D game space**
-
-MediaPipe worldLandmarks gives 3D coordinates in meters relative to the player's hip center. The overlay projects these onto a 2D screen plane by treating x as horizontal and y as vertical, scaling to fit a fixed half-screen region per player. The z coordinate is used for depth-based hit detection on the server but is discarded in the renderer.
-
-**30fps input, 60Hz simulation**
-
-Mobile clients stream pose frames at 30fps (the limit of real-time MediaPipe inference). The server game loop ticks at 60Hz and uses linear interpolation between the two most recent pose frames to fill the gaps. The overlay receives `game_state` at 60Hz and applies cubic interpolation between ticks to produce smooth 60fps rendering on the client.
+- The simulation uses delay-based netcode. The server measures RTT to both players every 500ms and applies the larger value as a uniform input delay so neither player has a frame advantage. Above 150ms RTT the clients show a lag warning.
+- MediaPipe gives 3D world landmarks in meters relative to the hip. The server uses z for depth checks during hit detection. The overlay only uses x and y.
+- Pose frames stream at 30fps. The server simulates at 60Hz, interpolating between the two most recent pose frames.
+- iOS Safari requires HTTPS for camera access. Cloudflare Tunnel and `tailscale serve` both provide this. On plain LAN, use the Chrome insecure-origin flag described in the Tailscale script output.
