@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { AvatarCanvas } from './AvatarCanvas'
 import type { PoseKeypoint } from '../protocol'
 
@@ -81,12 +81,7 @@ describe('AvatarCanvas', () => {
 
   it('uses red fill style when hitRegion is set and keypoints are visible', () => {
     render(<AvatarCanvas keypoints={makeKeypoints()} hitRegion="head_face" />)
-    // At least one fillStyle assignment should contain 'rgba(255,' (the hit colour)
-    const redFills = Object.entries(
-      Object.getOwnPropertyDescriptors(mockCtx),
-    )
-    // fillStyle is set as a property; check the last assigned value via the mock ctx object
-    // Instead, check that fill() was called (hit path was reached)
+    // Check that fill() was called (hit path was reached)
     expect(mockCtx.fill.mock.calls.length).toBeGreaterThan(0)
   })
 
