@@ -31,7 +31,7 @@ class GameLoop:
         self.room = room
         self.tick = 0
         self.running = False
-        self.hp: list[int] = [300, 300]
+        self.hp: list[int] = [800, 800]
 
         # Input buffers: raw frames with arrival timestamps, awaiting delay release
         self._buffers: dict[int, deque[tuple[float, object]]] = {
@@ -263,7 +263,7 @@ class GameLoop:
                 return
             room.round_number += 1
             room.round_start_time = None
-            self.hp = [300, 300]
+            self.hp = [800, 800]
             self._first_blood_pending = True
             self._combo = {1: (0.0, 0), 2: (0.0, 0)}
             self._low_hp_announced.clear()
@@ -345,8 +345,8 @@ class GameLoop:
         self._combo[defender] = (0.0, 0)
 
         defender_hp = self.hp[defender - 1]
-        defender_hp_pct = defender_hp / 300.0
-        attacker_hp_pct = self.hp[attacker - 1] / 300.0
+        defender_hp_pct = defender_hp / 800.0
+        attacker_hp_pct = self.hp[attacker - 1] / 800.0
 
         kind = "hit"
         priority = False

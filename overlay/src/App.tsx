@@ -23,7 +23,7 @@ function App() {
     poseStreamRef,
     socket,
   } = useSpectatorSocket(serverUrl, roomCode)
-  const hp: HpPair = gameState?.hp ?? [300, 300]
+  const hp: HpPair = gameState?.hp ?? [800, 800]
   const remainingTime = gameState?.remaining_time ?? 90
   const roundNumber = roundState?.number ?? 1
 
