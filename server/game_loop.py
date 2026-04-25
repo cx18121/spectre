@@ -15,7 +15,7 @@ from rooms import RoomState, median_rtt
 log = logging.getLogger(__name__)
 
 _EMPTY_POSES: list[PoseKeypoint] = []
-_HIT_COOLDOWN_TICKS = 18  # ~300ms at 60Hz -- suppresses repeated hits from same strike
+_HIT_COOLDOWN_TICKS = 12  # ~200ms at 60Hz -- suppresses double-counting while allowing fast combos
 _ROUND_DURATION = 90.0
 
 

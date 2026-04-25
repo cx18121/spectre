@@ -83,14 +83,17 @@ HITBOXES: dict[str, list[Capsule]] = {
 
 
 def _velocity(poses: deque, landmark_idx: int) -> np.ndarray:
-    """Central-difference velocity over the last 3 frames."""
+    """Central-difference velocity over the last 3 frames using actual timestamps."""
     if len(poses) < 3:
         return np.zeros(3)
     kp_new = poses[-1].keypoints[landmark_idx]
     kp_old = poses[-3].keypoints[landmark_idx]
+    dt = float(poses[-1].timestamp - poses[-3].timestamp)
+    if dt < 1e-4:
+        dt = 2.0 * _FRAME_DT  # fallback to nominal 30fps when timestamps are missing
     return np.array(
         [kp_new.x - kp_old.x, kp_new.y - kp_old.y, kp_new.z - kp_old.z]
-    ) / (2 * _FRAME_DT)
+    ) / dt
 
 
 def _hip_midpoint(frame: MsgPoseFrame) -> np.ndarray:
@@ -119,14 +122,18 @@ def _check_limb(
     if speed < threshold:
         return None
 
-    kp = attacker_poses[-1].keypoints[landmark_idx]
     origin = _hip_midpoint(defender_poses[-1])
-    local = np.array([kp.x - origin[0], kp.y - origin[1], kp.z - origin[2]])
 
-    for region, capsules in HITBOXES.items():
-        for cap in capsules:
-            if _capsule_dist(local, cap) < cap.radius:
-                return HitResult(region=region, velocity=speed, position=(kp.x, kp.y, kp.z))
+    # Sweep newest→oldest so a fast strike that passes through a hitbox and
+    # exits before the final frame is still caught. We prefer the most recent
+    # in-zone position (the exit point closest to follow-through).
+    for frame in reversed(list(attacker_poses)):
+        kp = frame.keypoints[landmark_idx]
+        local = np.array([kp.x - origin[0], kp.y - origin[1], kp.z - origin[2]])
+        for region, capsules in HITBOXES.items():
+            for cap in capsules:
+                if _capsule_dist(local, cap) < cap.radius:
+                    return HitResult(region=region, velocity=speed, position=(kp.x, kp.y, kp.z))
     return None
 
 
