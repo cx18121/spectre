@@ -1,0 +1,96 @@
+import { useEffect, useRef, useState, type RefObject } from 'react';
+
+export interface UseCameraResult {
+  stream: MediaStream | null;
+  error: string | null;
+  ready: boolean;
+}
+
+// Opens the device camera and pipes the stream into the supplied <video> ref.
+// Prefers the rear camera for phones; desktop browsers fall back to whatever
+// camera is available (FaceTime, Continuity Camera, etc.).
+export function useCamera(videoRef: RefObject<HTMLVideoElement | null>): UseCameraResult {
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+
+    let activeStream: MediaStream | null = null;
+
+    async function start() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError('Camera API not available in this browser.');
+        return;
+      }
+
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30 },
+          },
+          audio: false,
+        });
+
+        if (cancelledRef.current) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        activeStream = s;
+        setStream(s);
+
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = s;
+
+        const onLoaded = () => {
+          if (!cancelledRef.current) setReady(true);
+        };
+        if (video.readyState >= 1) {
+          onLoaded();
+        } else {
+          video.addEventListener('loadedmetadata', onLoaded, { once: true });
+        }
+
+        // iOS Safari requires an explicit play() after srcObject assignment.
+        try {
+          await video.play();
+        } catch {
+          /* play() may reject silently if already playing */
+        }
+      } catch (err) {
+        const e = err as DOMException;
+        if (e.name === 'NotAllowedError') {
+          setError('Camera permission denied. Allow camera access and reload.');
+        } else if (e.name === 'NotFoundError') {
+          setError('No camera found on this device.');
+        } else {
+          setError(`Could not open camera: ${e.message ?? String(e)}`);
+        }
+      }
+    }
+
+    void start();
+
+    return () => {
+      cancelledRef.current = true;
+      if (activeStream) {
+        activeStream.getTracks().forEach((t) => t.stop());
+      }
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = null;
+      }
+      setReady(false);
+      setStream(null);
+    };
+  }, [videoRef]);
+
+  return { stream, error, ready };
+}

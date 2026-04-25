@@ -1,0 +1,541 @@
+/* Shadow Fight mobile -- minimal hand-rolled CSS, no framework. */
+
+.app-root {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: #0a0a0c;
+  color: #f5f5f5;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ============================================================
+   Connection screen
+   ============================================================ */
+
+.connection-screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: 24px max(24px, env(safe-area-inset-left)) 24px max(24px, env(safe-area-inset-right));
+  max-width: 480px;
+  margin: 0 auto;
+  gap: 16px;
+}
+
+.title {
+  font-size: 2.4rem;
+  margin: 0;
+  letter-spacing: -1px;
+  text-align: center;
+}
+
+.subtitle {
+  margin: 0 0 16px 0;
+  text-align: center;
+  color: #999;
+  font-size: 0.95rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field span {
+  font-size: 0.85rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.field input {
+  font: inherit;
+  font-size: 1.05rem;
+  background: #1a1a1f;
+  color: #f5f5f5;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 14px 16px;
+  min-height: 48px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.field input:focus {
+  border-color: #7af;
+}
+
+.slot-picker {
+  display: flex;
+  gap: 12px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.slot-picker legend {
+  font-size: 0.85rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0 0 6px 0;
+}
+
+.slot-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+
+.slot-option input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+}
+
+.slot-option.selected {
+  border-color: #7af;
+  background: rgba(120, 170, 255, 0.08);
+}
+
+.big-button {
+  background: #7af;
+  color: #0a0a0c;
+  font: inherit;
+  font-weight: 600;
+  font-size: 1.05rem;
+  border: 0;
+  border-radius: 10px;
+  min-height: 52px;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+
+.big-button:active {
+  filter: brightness(0.9);
+}
+
+.big-button:disabled {
+  background: #2a2a30;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.error-banner {
+  background: rgba(226, 91, 91, 0.15);
+  border: 1px solid rgba(226, 91, 91, 0.4);
+  color: #ff9b9b;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+/* ============================================================
+   Game screen
+   ============================================================ */
+
+.game-screen {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+
+.camera-view {
+  position: absolute;
+  inset: 0;
+}
+
+.camera-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.camera-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.8);
+  color: #ff9b9b;
+  font-size: 1rem;
+}
+
+/* ============================================================
+   Status bar (top)
+   ============================================================ */
+
+.status-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: max(12px, env(safe-area-inset-top)) 16px 8px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-slot {
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.slot-1 {
+  background: rgba(120, 170, 255, 0.25);
+  color: #aac6ff;
+}
+
+.slot-2 {
+  background: rgba(255, 170, 100, 0.25);
+  color: #ffc99b;
+}
+
+.status-vs {
+  color: #888;
+  font-size: 0.75rem;
+}
+
+.status-opponent {
+  color: #ccc;
+}
+
+.status-center {
+  font-family: ui-monospace, Consolas, monospace;
+  letter-spacing: 0.1em;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.status-right {
+  display: flex;
+  gap: 10px;
+  color: #ccc;
+}
+
+.latency-banner {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  background: rgba(226, 91, 91, 0.85);
+  color: #fff;
+  text-align: center;
+  font-size: 0.85rem;
+  padding: 6px;
+  z-index: 5;
+}
+
+/* ============================================================
+   Loading model overlay
+   ============================================================ */
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 12, 0.7);
+  color: #fff;
+  z-index: 8;
+  text-align: center;
+  padding: 24px;
+}
+
+/* ============================================================
+   Calibration overlay
+   ============================================================ */
+
+.calibration-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  z-index: 6;
+  padding: 24px;
+  text-align: center;
+  transition: opacity 0.5s ease-out;
+}
+
+.calibration-fade {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.calibration-instruction {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin: 0;
+  max-width: 480px;
+  line-height: 1.3;
+}
+
+.calibration-tip {
+  margin: 0;
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
+.calibration-fight {
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: -2px;
+  margin: 0;
+  color: #ffe34f;
+  text-shadow: 0 0 24px rgba(255, 227, 79, 0.6);
+}
+
+.tpose-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.tpose-svg {
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 4;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.tpose-svg circle {
+  fill: rgba(255, 255, 255, 0.05);
+}
+
+.tpose-progress-track {
+  width: 180px;
+  height: 6px;
+  background: #222;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tpose-progress-fill {
+  height: 100%;
+  background: #3ecf6e;
+  transition: width 0.1s linear;
+}
+
+.punch-icons {
+  display: flex;
+  gap: 16px;
+}
+
+.punch-icon {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #333;
+  border-radius: 12px;
+  color: #555;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.punch-icon.filled {
+  color: #3ecf6e;
+  border-color: #3ecf6e;
+  background: rgba(62, 207, 110, 0.15);
+  transform: scale(1.05);
+  animation: punch-pulse 0.4s ease-out;
+}
+
+@keyframes punch-pulse {
+  0% {
+    transform: scale(1.4);
+    box-shadow: 0 0 0 0 rgba(62, 207, 110, 0.6);
+  }
+  100% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 14px rgba(62, 207, 110, 0);
+  }
+}
+
+.neutral-ring-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================
+   Hit flash
+   ============================================================ */
+
+.hit-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(226, 30, 30, 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 7;
+}
+
+.hit-flash.active {
+  animation: hit-fade 1.5s ease-out forwards;
+}
+
+@keyframes hit-fade {
+  0% {
+    background: rgba(226, 30, 30, 0);
+  }
+  10% {
+    background: rgba(226, 30, 30, 0.55);
+  }
+  100% {
+    background: rgba(226, 30, 30, 0);
+  }
+}
+
+.hit-flash-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.7);
+}
+
+.hit-flash-region {
+  font-size: 1.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hit-flash-damage {
+  font-size: 4rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+/* ============================================================
+   Match end screen
+   ============================================================ */
+
+.match-end {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9;
+  padding: 24px;
+}
+
+.match-end-title {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.match-end-title.win {
+  color: #3ecf6e;
+}
+
+.match-end-title.lose {
+  color: #e25b5b;
+}
+
+.match-end .big-button {
+  width: 100%;
+  max-width: 320px;
+}
+
+/* ============================================================
+   Leave button
+   ============================================================ */
+
+.leave-button {
+  position: absolute;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  color: #ccc;
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid #333;
+  border-radius: 999px;
+  padding: 8px 20px;
+  min-height: 36px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.leave-button:active {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* ============================================================
+   Landscape warning -- this app is portrait-only
+   ============================================================ */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .app-root::before {
+    content: 'Please rotate to portrait';
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    background: #0a0a0c;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    text-align: center;
+    padding: 24px;
+  }
+}
