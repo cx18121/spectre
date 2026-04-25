@@ -8,7 +8,7 @@ from pathlib import Path
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from game_loop import GameLoop
@@ -112,11 +112,11 @@ if _overlay_dist.exists() or _mobile_dist.exists():
 
 
 @app.get("/", response_class=HTMLResponse)
-def landing():
+def landing(request: Request):
     code = app.state.default_room
+    server_url = str(request.base_url).rstrip("/")
     # Both player links go to /mobile (the bundled mobile client). Server
-    # picks the first open slot regardless of the slot query param, but we
-    # still pass it so the UI starts with a sensible default.
+    # receives the requested slot on the WebSocket query string.
     return f"""<!DOCTYPE html>
 <html>
 <head><title>Shadow Fight Server</title></head>
@@ -124,9 +124,9 @@ def landing():
 <h1>Shadow Fight Server</h1>
 <p>Status: running</p>
 <p>Room code: <strong>{code}</strong></p>
-<p>Player 1: <a href="/mobile?room={code}&slot=1" style="color:#7af">/mobile?room={code}&slot=1</a></p>
-<p>Player 2: <a href="/mobile?room={code}&slot=2" style="color:#7af">/mobile?room={code}&slot=2</a></p>
-<p>Overlay: <a href="/overlay?room={code}" style="color:#7af">/overlay?room={code}</a></p>
+<p>Player 1: <a href="/mobile?server={server_url}&room={code}&slot=1" style="color:#7af">/mobile?server={server_url}&room={code}&slot=1</a></p>
+<p>Player 2: <a href="/mobile?server={server_url}&room={code}&slot=2" style="color:#7af">/mobile?server={server_url}&room={code}&slot=2</a></p>
+<p>Overlay: <a href="/overlay?server={server_url}&room={code}" style="color:#7af">/overlay?server={server_url}&room={code}</a></p>
 </body>
 </html>"""
 
@@ -180,15 +180,25 @@ async def ws_player(websocket: WebSocket, room_code: str):
         await websocket.close(code=4004)
         return
 
-    # Find an open slot
+    requested_slot: int | None = None
+    slot_param = websocket.query_params.get("slot")
+    if slot_param in ("1", "2"):
+        requested_slot = int(slot_param)
+
+    # Find an open slot. If the client requested a specific slot, honor it
+    # and reject the connection if that slot is already occupied.
     slot_num = None
-    for n in (1, 2):
-        if not room.players[n].connected:
-            slot_num = n
-            break
+    if requested_slot is not None:
+        if not room.players[requested_slot].connected:
+            slot_num = requested_slot
+    else:
+        for n in (1, 2):
+            if not room.players[n].connected:
+                slot_num = n
+                break
 
     if slot_num is None:
-        await websocket.close(code=4000, reason="room full")
+        await websocket.close(code=4000, reason="slot unavailable")
         return
 
     await websocket.accept()

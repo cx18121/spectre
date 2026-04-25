@@ -112,8 +112,12 @@ function startSoundtrack() {
     soundtrackAudio = new Audio(`${import.meta.env.BASE_URL}sfx/soundtrack.mp3`)
     soundtrackAudio.loop = true
     soundtrackAudio.volume = 0.35
-    soundtrackAudio.play().catch(() => {})
-  } catch {}
+    soundtrackAudio.play().catch(() => {
+      playFallbackTone('round_bell', 0.3)
+    })
+  } catch (error) {
+    console.warn('soundtrack failed to start', error)
+  }
 }
 
 export function unlockSfx() {

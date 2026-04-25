@@ -13,18 +13,20 @@ os.environ.setdefault("TUNNEL", "false")
 from protocol import MsgPoseFrame, PoseKeypoint
 from rooms import RoomState, PlayerSlot
 from game_loop import GameLoop
-from hit_detection import LEFT_HIP, RIGHT_HIP, WRIST_LEFT
+from hit_detection import LEFT_HIP, RIGHT_HIP, LEFT_SHOULDER, RIGHT_SHOULDER, WRIST_LEFT
 
 
 def kp(x=0.0, y=0.0, z=0.0) -> PoseKeypoint:
     return PoseKeypoint(x=x, y=y, z=z, visibility=1.0)
 
 
-def make_frame(wrist_x=0.0, wrist_y=0.5) -> MsgPoseFrame:
+def make_frame(wrist_x=0.0, wrist_y=-0.10) -> MsgPoseFrame:
     pts = [kp()] * 33
     pts = list(pts)
     pts[LEFT_HIP]   = kp(x=-0.1)
     pts[RIGHT_HIP]  = kp(x= 0.1)
+    pts[LEFT_SHOULDER] = kp(x=-0.2, y=-0.25)
+    pts[RIGHT_SHOULDER] = kp(x=0.2, y=-0.25)
     pts[WRIST_LEFT] = kp(x=wrist_x, y=wrist_y)
     return MsgPoseFrame(type="pose_frame", timestamp=time.time(), keypoints=pts)
 
@@ -80,7 +82,7 @@ async def test_hit_reduces_hp():
 
     # Fast punch: wrist moves 2m in 2 frames -> ~30 m/s >> threshold
     for x in (-2.0, -1.0, 0.0):
-        f = make_frame(wrist_x=x, wrist_y=0.65)  # head height
+        f = make_frame(wrist_x=x, wrist_y=-0.45)  # head height in MediaPipe Y-down
         f2 = make_frame()  # static defender
         gl._processed[1].append(f)
         gl._processed[2].append(f2)
@@ -99,7 +101,7 @@ async def test_hit_cooldown_suppresses_repeated_hits():
 
     # Load processed frames with a fast punch in head zone
     for x in (-2.0, -1.0, 0.0):
-        gl._processed[1].append(make_frame(wrist_x=x, wrist_y=0.65))
+        gl._processed[1].append(make_frame(wrist_x=x, wrist_y=-0.45))
         gl._processed[2].append(make_frame())
 
     await gl._tick()
@@ -170,11 +172,11 @@ def test_game_loop_starts_after_calibration():
 
         with client.websocket_connect(f"/ws/player/{room_code}") as ws1:
             ws1.receive_text()  # joined
-            ws1.receive_text()  # calibration_start
 
             with client.websocket_connect(f"/ws/player/{room_code}") as ws2:
                 ws2.receive_text()  # joined
                 ws2.receive_text()  # calibration_start
+                ws1.receive_text()  # calibration_start
 
                 # Game loop should NOT be running before calibration
                 assert r.game_loop is None

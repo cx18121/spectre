@@ -76,7 +76,6 @@ function App() {
           lastHit={socket.lastHit}
           matchEnd={socket.matchEnd}
           send={socket.send}
-          setPhase={socket.setPhase}
           onDisconnect={socket.disconnect}
           onPlayAgain={socket.playAgain}
         />

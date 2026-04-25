@@ -65,6 +65,13 @@ def test_parse_pose_frame_keypoint_count():
     assert len(msg.keypoints) == 33
 
 
+def test_parse_pose_frame_rejects_wrong_keypoint_count():
+    from protocol import parse_mobile_msg
+    kps = [{"x": 0.0, "y": 0.0, "z": 0.0, "visibility": 1.0}] * 32
+    with pytest.raises(Exception):
+        parse_mobile_msg({"type": "pose_frame", "timestamp": 1.0, "keypoints": kps})
+
+
 def test_parse_ping():
     from protocol import parse_mobile_msg, MsgPing
     msg = parse_mobile_msg({"type": "ping", "t": 999.0})
@@ -95,6 +102,7 @@ def test_landing_returns_html():
         assert r.status_code == 200
         assert r.headers["content-type"].startswith("text/html")
         assert "Shadow Fight" in r.text
+        assert "server=http://testserver" in r.text
 
 
 def test_create_room_endpoint():
@@ -118,14 +126,38 @@ def test_ws_player_join_and_ping():
             assert msg["player_slot"] in (1, 2)
             assert msg["room_code"] == default_room
 
-            calib = json.loads(ws.receive_text())
-            assert calib["type"] == "calibration_start"
-
             # Client-originated ping should be echoed as pong
             ws.send_text(json.dumps({"type": "ping", "t": 42.0}))
-            pong = json.loads(ws.receive_text())
+            pong = None
+            for _ in range(3):
+                candidate = json.loads(ws.receive_text())
+                if candidate["type"] == "pong":
+                    pong = candidate
+                    break
+            assert pong is not None
             assert pong["type"] == "pong"
             assert pong["t"] == 42.0
+
+
+def test_ws_player_honors_requested_slot():
+    with make_client() as client:
+        default_room = client.app.state.default_room
+
+        with client.websocket_connect(f"/ws/player/{default_room}?slot=2") as ws:
+            msg = json.loads(ws.receive_text())
+            assert msg["type"] == "joined"
+            assert msg["player_slot"] == 2
+
+
+def test_ws_player_rejects_occupied_requested_slot():
+    with make_client() as client:
+        default_room = client.app.state.default_room
+
+        with client.websocket_connect(f"/ws/player/{default_room}?slot=1") as ws1:
+            ws1.receive_text()
+            with pytest.raises(Exception):
+                with client.websocket_connect(f"/ws/player/{default_room}?slot=1"):
+                    pass
 
 
 def test_ws_player_room_not_found():
@@ -148,9 +180,14 @@ def test_ws_player_bad_message_does_not_crash():
         default_room = client.app.state.default_room
         with client.websocket_connect(f"/ws/player/{default_room}") as ws:
             ws.receive_text()  # consume joined
-            ws.receive_text()  # consume calibration_start
             ws.send_text("not valid json {{{{")
             # Send a valid ping after the bad message -- connection should still be alive
             ws.send_text(json.dumps({"type": "ping", "t": 1.0}))
-            pong = json.loads(ws.receive_text())
+            pong = None
+            for _ in range(3):
+                candidate = json.loads(ws.receive_text())
+                if candidate["type"] == "pong":
+                    pong = candidate
+                    break
+            assert pong is not None
             assert pong["type"] == "pong"

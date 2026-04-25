@@ -228,7 +228,7 @@ export function useGameSocket(): UseGameSocketResult {
     setStatus('connecting');
 
     const base = normalizeWsUrl(args.serverUrl);
-    const url = `${base}/ws/player/${encodeURIComponent(args.roomCode)}`;
+    const url = `${base}/ws/player/${encodeURIComponent(args.roomCode)}?slot=${args.playerSlot}`;
 
     let ws: WebSocket;
     try {

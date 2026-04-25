@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Literal
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PoseKeypoint(BaseModel):
@@ -24,7 +24,7 @@ class MsgPoseFrame(BaseModel):
     model_config = ConfigDict(frozen=True)
     type: Literal["pose_frame"]
     timestamp: float
-    keypoints: list[PoseKeypoint]  # always 33
+    keypoints: list[PoseKeypoint] = Field(min_length=33, max_length=33)
 
 
 class MsgCalibrationDone(BaseModel):
@@ -110,8 +110,6 @@ class MsgMatchEnd(BaseModel):
 # Union type for parsing inbound mobile messages
 
 from typing import Union, Annotated
-from pydantic import Field
-
 InboundMobileMsg = Annotated[
     Union[MsgJoin, MsgPoseFrame, MsgCalibrationDone, MsgPing, MsgPong],
     Field(discriminator="type"),

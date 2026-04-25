@@ -83,19 +83,18 @@ async def test_round_ends_when_hp_zero():
 
 
 @pytest.mark.asyncio
-async def test_wins_tracked_across_rounds():
+async def test_match_ends_after_single_round_win():
     room = make_room()
     gl = GameLoop(room)
     gl.hp[1] = 0
     await gl._tick()
     assert room.wins[0] == 1
-    assert room.round_number == 2
-    assert room.round_start_time is None
-    assert gl.hp == [100, 100]
+    assert room.match_over is True
+    assert gl.running is False
 
 
 @pytest.mark.asyncio
-async def test_match_ends_after_two_wins():
+async def test_existing_win_also_ends_after_next_round_win():
     room = make_room()
     gl = GameLoop(room)
     room.wins = [1, 0]  # player 1 already has 1 win
@@ -127,21 +126,27 @@ async def test_timeout_winner_determined_by_hp():
     gl.hp = [60, 40]  # player 1 has more HP
     await gl._tick()
     assert room.wins[0] == 1  # player 1 wins the round
+    assert room.match_over is True
 
 
 # --- calibration integration ---------------------------------------------
 
-def test_calibration_start_sent_on_connect():
+def test_calibration_start_sent_when_second_player_connects():
     from fastapi.testclient import TestClient
     from main import app
 
     with TestClient(app) as client:
         room_code = client.app.state.default_room
-        with client.websocket_connect(f"/ws/player/{room_code}") as ws:
-            joined = json.loads(ws.receive_text())
-            assert joined["type"] == "joined"
-            calib = json.loads(ws.receive_text())
-            assert calib["type"] == "calibration_start"
+        with client.websocket_connect(f"/ws/player/{room_code}") as ws1:
+            joined1 = json.loads(ws1.receive_text())
+            assert joined1["type"] == "joined"
+            with client.websocket_connect(f"/ws/player/{room_code}") as ws2:
+                joined2 = json.loads(ws2.receive_text())
+                assert joined2["type"] == "joined"
+                calib2 = json.loads(ws2.receive_text())
+                assert calib2["type"] == "calibration_start"
+                calib1 = json.loads(ws1.receive_text())
+                assert calib1["type"] == "calibration_start"
 
 
 def test_game_loop_not_started_before_calibration():
@@ -154,10 +159,10 @@ def test_game_loop_not_started_before_calibration():
 
         with client.websocket_connect(f"/ws/player/{room_code}") as ws1:
             ws1.receive_text()
-            ws1.receive_text()
             with client.websocket_connect(f"/ws/player/{room_code}") as ws2:
                 ws2.receive_text()
                 ws2.receive_text()
+                ws1.receive_text()
                 assert r.game_loop is None
 
 
@@ -172,10 +177,10 @@ def test_round1_start_broadcast_on_match_start():
         with client.websocket_connect(f"/ws/spectator/{room_code}") as spec:
             with client.websocket_connect(f"/ws/player/{room_code}") as ws1:
                 ws1.receive_text()  # joined
-                ws1.receive_text()  # calibration_start
                 with client.websocket_connect(f"/ws/player/{room_code}") as ws2:
                     ws2.receive_text()  # joined
                     ws2.receive_text()  # calibration_start
+                    ws1.receive_text()  # calibration_start
                     ws1.send_text(json.dumps({"type": "calibration_done", "reference_velocity": 3.0}))
                     ws1.send_text(json.dumps({"type": "ping", "t": 0.0}))
                     ws1.receive_text()  # pong
@@ -197,10 +202,10 @@ def test_calibration_triggers_game_loop():
 
         with client.websocket_connect(f"/ws/player/{room_code}") as ws1:
             ws1.receive_text()
-            ws1.receive_text()
             with client.websocket_connect(f"/ws/player/{room_code}") as ws2:
                 ws2.receive_text()
                 ws2.receive_text()
+                ws1.receive_text()
                 # Piggyback a ping to confirm ws1 calibration was processed first
                 ws1.send_text(json.dumps({"type": "calibration_done", "reference_velocity": 3.0}))
                 ws1.send_text(json.dumps({"type": "ping", "t": 0.0}))

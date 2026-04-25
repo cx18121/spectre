@@ -23,7 +23,6 @@ interface GameScreenProps {
   lastHit: { region: string; damage: number } | null;
   matchEnd: MatchEnd | null;
   send: (msg: OutboundMobileMsg) => void;
-  setPhase: (phase: GamePhase) => void;
   onDisconnect: () => void;
   onPlayAgain: () => void;
 }
@@ -42,7 +41,6 @@ export function GameScreen({
   lastHit,
   matchEnd,
   send,
-  setPhase,
   onDisconnect,
   onPlayAgain,
 }: GameScreenProps) {
@@ -135,7 +133,9 @@ export function GameScreen({
   // Reset the READY gate whenever calibration (re)starts so the player
   // must press READY again each round — including after a rematch.
   useEffect(() => {
-    if (phase === 'lobby' || phase === 'calibration') setIsReady(false);
+    if (phase !== 'lobby' && phase !== 'calibration') return;
+    const timer = window.setTimeout(() => setIsReady(false), 0);
+    return () => window.clearTimeout(timer);
   }, [phase]);
 
   return (
