@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useCamera } from '../hooks/useCamera';
 import { usePose } from '../hooks/usePose';
 import { useCalibration } from '../hooks/useCalibration';
-import { AvatarCanvas } from './AvatarCanvas';
 import { CameraView } from './CameraView';
 import { CalibrationOverlay } from './CalibrationOverlay';
 import { HitFlash } from './HitFlash';
@@ -141,7 +140,6 @@ export function GameScreen({
     <div className="game-screen">
       <CameraView ref={videoRef} error={cameraError} />
       <PoseOverlay keypoints={imageKeypoints} />
-      <AvatarCanvas keypoints={keypoints} hitRegion={lastHit?.region ?? null} />
 
       <StatusBar
         status={status}
