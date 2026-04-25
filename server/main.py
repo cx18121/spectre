@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
+from game_loop import GameLoop
 from protocol import MsgJoined, MsgPing, MsgPong, parse_mobile_msg
 from qr import print_startup_info
 from rooms import RoomManager, record_pong
@@ -111,6 +112,13 @@ async def ws_player(websocket: WebSocket, room_code: str):
         ).model_dump_json()
     )
 
+    # Start the game loop once both players are connected
+    if opponent.connected and room.game_loop is None:
+        loop = GameLoop(room)
+        room.game_loop = loop
+        asyncio.create_task(loop.run())
+        log.info("Game loop started for room %s", room_code)
+
     try:
         while True:
             raw = await websocket.receive_text()
@@ -125,19 +133,27 @@ async def ws_player(websocket: WebSocket, room_code: str):
 
             if msg.type == "pose_frame":
                 slot.latest_pose = msg
-                await websocket.send_text(raw)  # echo back for Sprint 1
+                if room.game_loop is not None:
+                    room.game_loop.add_pose_frame(slot_num, msg)
             elif msg.type == "ping":
                 # Client-originated ping: echo back for client-side RTT display
                 await websocket.send_text(MsgPong(t=msg.t).model_dump_json())
             elif msg.type == "pong":
                 # Server-originated ping echoed back: record server-side RTT
                 record_pong(slot, msg.t)
+            elif msg.type == "calibration_done":
+                slot.reference_velocity = msg.reference_velocity
+                log.info("Player %d calibrated, ref_velocity=%.2f", slot_num, msg.reference_velocity)
     except WebSocketDisconnect:
         pass
     finally:
         slot.connected = False
         slot.ws = None
         log.info("Player %d disconnected from room %s", slot_num, room_code)
+        if room.game_loop is not None and not any(p.connected for p in room.players.values()):
+            room.game_loop.stop()
+            room.game_loop = None
+            log.info("Game loop stopped for room %s", room_code)
 
 
 @app.websocket("/ws/spectator/{room_code}")

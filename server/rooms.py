@@ -42,6 +42,7 @@ class RoomState:
     players: dict[int, PlayerSlot] = field(default_factory=lambda: {1: PlayerSlot(), 2: PlayerSlot()})
     created_at: float = field(default_factory=time.time)
     spectators: set = field(default_factory=set)
+    game_loop: object = field(default=None)  # GameLoop | None, typed as object to avoid circular import
 
 
 class RoomManager:

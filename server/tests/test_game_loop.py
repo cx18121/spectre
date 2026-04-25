@@ -1,0 +1,182 @@
+"""Game loop integration tests: 60Hz tick, hit logging, spectator broadcast."""
+from __future__ import annotations
+import asyncio
+import json
+import os
+import time
+from collections import deque
+
+import pytest
+
+os.environ.setdefault("TUNNEL", "false")
+
+from protocol import MsgPoseFrame, PoseKeypoint
+from rooms import RoomState, PlayerSlot
+from game_loop import GameLoop
+from hit_detection import LEFT_HIP, RIGHT_HIP, WRIST_LEFT
+
+
+def kp(x=0.0, y=0.0, z=0.0) -> PoseKeypoint:
+    return PoseKeypoint(x=x, y=y, z=z, visibility=1.0)
+
+
+def make_frame(wrist_x=0.0, wrist_y=0.5) -> MsgPoseFrame:
+    pts = [kp()] * 33
+    pts = list(pts)
+    pts[LEFT_HIP]   = kp(x=-0.1)
+    pts[RIGHT_HIP]  = kp(x= 0.1)
+    pts[WRIST_LEFT] = kp(x=wrist_x, y=wrist_y)
+    return MsgPoseFrame(type="pose_frame", timestamp=time.time(), keypoints=pts)
+
+
+def make_room() -> RoomState:
+    room = RoomState(code="TEST01")
+    room.players[1].connected = True
+    room.players[1].reference_velocity = 3.0
+    room.players[2].connected = True
+    room.players[2].reference_velocity = 3.0
+    return room
+
+
+# --- unit: add_pose_frame ----------------------------------------------------
+
+def test_add_pose_frame_buffers_frame():
+    room = make_room()
+    gl = GameLoop(room)
+    frame = make_frame()
+    gl.add_pose_frame(1, frame)
+    assert len(gl._buffers[1]) == 1
+
+
+def test_buffer_capped_at_180():
+    room = make_room()
+    gl = GameLoop(room)
+    for _ in range(200):
+        gl.add_pose_frame(1, make_frame())
+    assert len(gl._buffers[1]) == 180
+
+
+# --- unit: input delay releases frames correctly -----------------------------
+
+@pytest.mark.asyncio
+async def test_frames_released_after_delay():
+    room = make_room()
+    gl = GameLoop(room)
+    # With 0 RTT (default), delay is 0 -> frames released immediately
+    frame = make_frame()
+    gl.add_pose_frame(1, frame)
+    gl.add_pose_frame(2, frame)
+    await gl._tick()
+    assert len(gl._processed[1]) == 1
+    assert len(gl._processed[2]) == 1
+
+
+# --- unit: damage applied on hit ---------------------------------------------
+
+@pytest.mark.asyncio
+async def test_hit_reduces_hp():
+    room = make_room()
+    gl = GameLoop(room)
+
+    # Fast punch: wrist moves 2m in 2 frames -> ~30 m/s >> threshold
+    for x in (-2.0, -1.0, 0.0):
+        f = make_frame(wrist_x=x, wrist_y=0.65)  # head height
+        f2 = make_frame()  # static defender
+        gl._processed[1].append(f)
+        gl._processed[2].append(f2)
+
+    initial_hp = gl.hp[1]
+    await gl._tick()
+    assert gl.hp[1] < initial_hp, "Defender HP should decrease after a hit"
+
+
+# --- unit: hit cooldown prevents double-counting ----------------------------
+
+@pytest.mark.asyncio
+async def test_hit_cooldown_suppresses_repeated_hits():
+    room = make_room()
+    gl = GameLoop(room)
+
+    # Load processed frames with a fast punch in head zone
+    for x in (-2.0, -1.0, 0.0):
+        gl._processed[1].append(make_frame(wrist_x=x, wrist_y=0.65))
+        gl._processed[2].append(make_frame())
+
+    await gl._tick()
+    hp_after_first = gl.hp[1]
+
+    # Second tick immediately -- same pose data, should be suppressed by cooldown
+    await gl._tick()
+    assert gl.hp[1] == hp_after_first, "Cooldown should prevent damage on consecutive tick"
+
+
+# --- unit: game_state broadcast to spectators --------------------------------
+
+@pytest.mark.asyncio
+async def test_game_state_broadcast_to_spectators():
+    room = make_room()
+    gl = GameLoop(room)
+
+    received: list[str] = []
+
+    class FakeWS:
+        async def send_text(self, text: str) -> None:
+            received.append(text)
+
+    room.spectators.add(FakeWS())
+
+    # Add pose frames so state is non-trivial
+    gl._processed[1].append(make_frame())
+    gl._processed[2].append(make_frame())
+
+    await gl._tick()
+    assert len(received) == 1
+    state = json.loads(received[0])
+    assert state["type"] == "game_state"
+    assert state["tick"] == 1
+    assert len(state["hp"]) == 2
+    assert state["hp"][0] == 100
+    assert state["hp"][1] == 100
+
+
+# --- unit: dead spectators pruned --------------------------------------------
+
+@pytest.mark.asyncio
+async def test_dead_spectators_pruned():
+    room = make_room()
+    gl = GameLoop(room)
+
+    class DeadWS:
+        async def send_text(self, _: str) -> None:
+            raise RuntimeError("connection closed")
+
+    room.spectators.add(DeadWS())
+    gl._processed[1].append(make_frame())
+    gl._processed[2].append(make_frame())
+
+    await gl._tick()
+    assert len(room.spectators) == 0
+
+
+# --- integration: game loop starts when both players connect -----------------
+
+def test_game_loop_starts_on_second_player_connect():
+    from fastapi.testclient import TestClient
+    from main import app
+
+    with TestClient(app) as client:
+        room_code = client.app.state.default_room
+
+        with client.websocket_connect(f"/ws/player/{room_code}") as ws1:
+            ws1.receive_text()  # joined
+            room = client.app.extra.get("room_manager", None)
+            # Game loop should NOT be running with only one player
+            from main import room_manager
+            r = room_manager.get_room(room_code)
+            assert r.game_loop is None
+
+            with client.websocket_connect(f"/ws/player/{room_code}") as ws2:
+                ws2.receive_text()  # joined
+                # Game loop should now be running
+                assert r.game_loop is not None
+                assert r.game_loop.running is True

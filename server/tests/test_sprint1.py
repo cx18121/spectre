@@ -108,29 +108,21 @@ def test_create_room_endpoint():
 
 # --- WebSocket ---
 
-def test_ws_player_join_and_echo():
+def test_ws_player_join_and_ping():
     with make_client() as client:
         default_room = client.app.state.default_room
 
         with client.websocket_connect(f"/ws/player/{default_room}") as ws:
-            # Server sends joined on connect
             msg = json.loads(ws.receive_text())
             assert msg["type"] == "joined"
             assert msg["player_slot"] in (1, 2)
             assert msg["room_code"] == default_room
 
-            # Send a ping, expect pong
+            # Client-originated ping should be echoed as pong
             ws.send_text(json.dumps({"type": "ping", "t": 42.0}))
             pong = json.loads(ws.receive_text())
             assert pong["type"] == "pong"
             assert pong["t"] == 42.0
-
-            # Send a pose_frame, expect echo
-            kps = [{"x": 0.0, "y": 0.0, "z": 0.0, "visibility": 1.0}] * 33
-            frame = {"type": "pose_frame", "timestamp": 1.0, "keypoints": kps}
-            ws.send_text(json.dumps(frame))
-            echo = json.loads(ws.receive_text())
-            assert echo["type"] == "pose_frame"
 
 
 def test_ws_player_room_not_found():
