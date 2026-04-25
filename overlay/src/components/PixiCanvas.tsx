@@ -17,7 +17,7 @@ interface ScreenPoint {
   visible: boolean
 }
 
-const SILHOUETTE_COLOR = 0x000000
+const SILHOUETTE_COLOR = 0xffffff
 const JOINT_RADIUS = 8
 const VISIBILITY_THRESHOLD = 0.3
 const DEFAULT_TICK_INTERVAL_MS = 16
@@ -146,7 +146,7 @@ export function PixiCanvas({ gameState }: PixiCanvasProps) {
 
     const setup = async () => {
       await app.init({
-        background: '#1a1a2e',
+        backgroundAlpha: 0,
         resizeTo: window,
         antialias: true,
         resolution: window.devicePixelRatio || 1,

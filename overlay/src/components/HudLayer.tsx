@@ -56,7 +56,7 @@ export function HudLayer({
     <div className="hud-layer">
       <div className="top-bar">
         <div className="hp-wrap">
-          <div className="player-label">P1</div>
+          <div className="player-label">P1 →</div>
           <div className="hp-track">
             <div className="hp-fill" style={p1FillStyle} />
             <div className="hp-number">{p1Display}</div>
@@ -67,7 +67,7 @@ export function HudLayer({
           <div className="round-label">Round {round} / 3</div>
         </div>
         <div className="hp-wrap hp-wrap-right">
-          <div className="player-label">P2</div>
+          <div className="player-label">← P2</div>
           <div className="hp-track">
             <div className="hp-fill" style={p2FillStyle} />
             <div className="hp-number">{p2Display}</div>
