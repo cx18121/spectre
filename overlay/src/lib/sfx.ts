@@ -111,7 +111,7 @@ function startSoundtrack() {
   try {
     soundtrackAudio = new Audio(`${import.meta.env.BASE_URL}sfx/soundtrack.mp3`)
     soundtrackAudio.loop = true
-    soundtrackAudio.volume = 0.35
+    soundtrackAudio.volume = 0.21
     soundtrackAudio.play().catch(() => {
       playFallbackTone('round_bell', 0.3)
     })

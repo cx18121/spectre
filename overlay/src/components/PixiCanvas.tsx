@@ -103,7 +103,10 @@ function projectKeypoint(
   const scale = height * PLAYER_SCALE_Y
   const centerX = fighterCenterX(side, width, height)
   const centerY = height * PLAYER_CENTER_Y
-  const flip = side === 'left' ? -1 : 1
+  // Both players' silhouettes are mirrored. P1 was fixed in 3cd9642 so the
+  // "Face right" UI instruction renders correctly; P2 needs the same mirror
+  // so the "Face left" UI instruction works for symmetric positioning.
+  const flip = -1
   out.x = centerX + keypoint.x * scale * flip
   out.y = centerY + keypoint.y * scale
   out.visible = keypoint.visibility >= VISIBILITY_THRESHOLD
@@ -118,7 +121,10 @@ function projectXY(
   const scale = height * PLAYER_SCALE_Y
   const centerX = fighterCenterX(side, width, height)
   const centerY = height * PLAYER_CENTER_Y
-  const flip = side === 'left' ? -1 : 1
+  // Both players' silhouettes are mirrored. P1 was fixed in 3cd9642 so the
+  // "Face right" UI instruction renders correctly; P2 needs the same mirror
+  // so the "Face left" UI instruction works for symmetric positioning.
+  const flip = -1
   return {
     x: centerX + point.x * scale * flip,
     y: centerY + point.y * scale,
