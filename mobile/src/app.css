@@ -500,6 +500,37 @@
 }
 
 /* ============================================================
+   Facing direction indicator
+   ============================================================ */
+
+.face-direction {
+  position: absolute;
+  bottom: max(72px, calc(env(safe-area-inset-bottom) + 48px));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.face-direction-slot1 {
+  color: #aac6ff;
+  border: 1.5px solid rgba(120, 170, 255, 0.45);
+}
+
+.face-direction-slot2 {
+  color: #ffc99b;
+  border: 1.5px solid rgba(255, 170, 100, 0.45);
+}
+
+/* ============================================================
    Leave button
    ============================================================ */
 

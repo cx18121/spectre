@@ -145,6 +145,12 @@ export function GameScreen({
         <MatchEndScreen winner={matchEnd.winner} playerSlot={playerSlot} />
       ) : null}
 
+      {phase !== 'ended' ? (
+        <div className={`face-direction face-direction-slot${playerSlot}`}>
+          {playerSlot === 1 ? '▶  Face right' : 'Face left  ◀'}
+        </div>
+      ) : null}
+
       <button className="leave-button" onClick={onDisconnect} aria-label="Leave match">
         Leave
       </button>
