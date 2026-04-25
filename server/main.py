@@ -14,7 +14,8 @@ from fastapi.responses import HTMLResponse
 from game_loop import GameLoop
 from protocol import (
     MsgCalibrationStart, MsgJoined, MsgMatchEnd, MsgMatchStart,
-    MsgPing, MsgPong, MsgPlayerDisconnected, parse_mobile_msg,
+    MsgPing, MsgPong, MsgPlayerDisconnected, MsgPoseUpdate,
+    parse_mobile_msg,
 )
 from qr import print_startup_info
 from rooms import RoomManager, record_pong
@@ -270,6 +271,22 @@ async def ws_player(websocket: WebSocket, room_code: str):
                 slot.latest_pose = msg
                 if room.game_loop is not None:
                     room.game_loop.add_pose_frame(slot_num, msg)
+                # Push the freshly-arrived pose to every spectator immediately
+                # so the overlay renders at the mobile capture rate without
+                # waiting for the next 60Hz tick. Hit detection / HP still
+                # come from the fairness-delayed game_state stream.
+                if room.spectators:
+                    pose_update_json = MsgPoseUpdate(
+                        player=slot_num, keypoints=msg.keypoints,
+                    ).model_dump_json()
+                    dead_specs: set = set()
+                    for ws in room.spectators:
+                        try:
+                            await ws.send_text(pose_update_json)
+                        except Exception:
+                            dead_specs.add(ws)
+                    if dead_specs:
+                        room.spectators -= dead_specs
             elif msg.type == "ping":
                 await websocket.send_text(MsgPong(t=msg.t).model_dump_json())
             elif msg.type == "pong":

@@ -186,13 +186,15 @@ class GameLoop:
             await self._broadcast(MsgRoundStart(round_number=room.round_number).model_dump_json())
             return
 
-        # Spectators get the freshest raw frames (no fairness delay) so the TV
-        # display is as close to real-time as possible.  Hit detection and HP
-        # still derive from the fairness-delayed processed frames.
+        # Pose data is no longer carried on the 60Hz game_state channel — it
+        # streams to spectators on a separate `pose_update` message that fires
+        # the moment a frame arrives from a mobile client (see ws_player in
+        # main.py). Sending it here as well would just double the bandwidth
+        # and add up to one tick of staleness, so we ship empty pose arrays.
         state = MsgGameState(
             tick=self.tick,
             hp=(self.hp[0], self.hp[1]),
-            poses=(self._raw_poses(1), self._raw_poses(2)),
+            poses=(_EMPTY_POSES, _EMPTY_POSES),
             recent_hits=recent_hits,
             high_latency=max(rtt_a, rtt_b) > 150,
             remaining_time=remaining_time,
@@ -206,16 +208,6 @@ class GameLoop:
             except Exception:
                 dead.add(ws)
         self.room.spectators -= dead
-
-    def _raw_poses(self, slot: int) -> list[PoseKeypoint]:
-        """Return the most recently received frame for a player, bypassing the
-        input-delay queue.  Falls back to the processed queue if no raw frame
-        has arrived yet (e.g. very start of the game)."""
-        if self._buffers[slot]:
-            return list(self._buffers[slot][-1][1].keypoints)
-        if self._processed[slot]:
-            return list(self._processed[slot][-1].keypoints)
-        return _EMPTY_POSES
 
     def stop(self) -> None:
         self.running = False

@@ -40,7 +40,10 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement | null>): UseCame
             facingMode: { ideal: 'user' },
             width: { ideal: 640 },
             height: { ideal: 480 },
-            frameRate: { ideal: 30 },
+            // 60fps so MediaPipe gets a fresh frame every ~16ms instead of
+            // ~33ms. Devices that don't support 60fps capture silently fall
+            // back to whatever the camera supports, so this is safe.
+            frameRate: { ideal: 60 },
           },
           audio: false,
         });

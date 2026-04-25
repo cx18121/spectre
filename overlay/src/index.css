@@ -281,18 +281,38 @@ button {
   text-align: center;
 }
 
+.ko-text {
+  color: #ff3322;
+  font-size: clamp(80px, 18vw, 220px);
+  font-weight: 950;
+  line-height: 0.85;
+  text-shadow: 0 8px 0 #000, 0 0 60px rgba(255, 50, 30, 0.9);
+  animation: ko-slam 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 .match-end-title {
   color: #fff3cf;
   font-size: clamp(34px, 7vw, 92px);
   font-weight: 950;
   line-height: 0.98;
   text-shadow: 0 6px 0 #000;
+  animation: fade-in-up 0.5s 0.4s ease both;
 }
 
 .match-end-subtitle {
   color: rgba(248, 245, 237, 0.78);
   font-size: clamp(16px, 2.4vw, 24px);
   font-weight: 700;
+  animation: fade-in-up 0.5s 0.6s ease both;
+}
+
+.round-end-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: rgba(255, 80, 30, 0.30);
+  animation: flash-out 0.45s ease-out both;
 }
 
 .audio-unlock {
@@ -326,6 +346,36 @@ button {
     opacity: 0;
     transform: scale(1.04);
   }
+}
+
+@keyframes ko-slam {
+  0% { opacity: 0; transform: scale(2.4) translateY(-8px); }
+  55% { opacity: 1; transform: scale(0.92) translateY(0); }
+  75% { transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fade-in-up {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes flash-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes screen-shake {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-6px, 3px); }
+  30% { transform: translate(6px, -3px); }
+  50% { transform: translate(-4px, 2px); }
+  70% { transform: translate(4px, -2px); }
+  85% { transform: translate(-2px, 1px); }
+}
+
+.overlay-shell.shaking {
+  animation: screen-shake 0.4s ease-out both;
 }
 
 @media (max-width: 720px) {

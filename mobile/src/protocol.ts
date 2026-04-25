@@ -120,6 +120,12 @@ export interface MsgGameState {
   remaining_time: number;
 }
 
+export interface MsgPoseUpdate {
+  type: "pose_update";
+  player: 1 | 2;
+  keypoints: PoseKeypoint[];
+}
+
 export type InboundServerMsg =
   | MsgJoined
   | MsgPongFromServer
@@ -131,4 +137,5 @@ export type InboundServerMsg =
   | MsgRoundStart
   | MsgRoundEnd
   | MsgMatchEnd
-  | MsgGameState;
+  | MsgGameState
+  | MsgPoseUpdate;

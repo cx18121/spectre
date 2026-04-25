@@ -1,12 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type MutableRefObject } from 'react'
 import { Application, BlurFilter, Container, Graphics } from 'pixi.js'
-import { extrapolatePosesInto, interpolatePosesInto } from '../lib/interpolate'
+import { extrapolatePosesInto } from '../lib/interpolate'
 import { sfx } from '../lib/sfx'
 import { SparkEmitter } from '../lib/sparks'
+import type { PoseStream } from '../hooks/useSpectatorSocket'
 import type { HitEvent, MsgGameState, PoseKeypoint } from '../protocol'
 
 interface PixiCanvasProps {
   gameState: MsgGameState | null
+  poseStreamRef: MutableRefObject<PoseStream>
+  onHeavyHit?: () => void
 }
 
 type Side = 'left' | 'right'
@@ -53,9 +56,13 @@ const PLAYER_CENTER_Y = 0.575
 // which made the gap aspect-dependent and 0.91 m on a 16:9 1080p canvas —
 // too far for moderate punches to connect.
 const PLAYER_HALF_GAP_METERS = 0.40
-const DEFAULT_TICK_INTERVAL_MS = 16
-const TICK_EWMA_ALPHA = 0.1
-const MAX_EXTRAPOLATION_T = 1.5
+// Forward extrapolation budget. We render at `next + (next - prev) * forward`
+// where `forward = elapsed_ms / expected_interval_ms`, capped here. 1.0
+// lets us project a full network interval ahead (~16ms at 60Hz arrivals),
+// so the visible silhouette stays roughly even with the player's real-time
+// motion when prediction is accurate. Higher values overshoot on motion
+// that suddenly stops, so 1.0 is the sweet spot for boxing-style movement.
+const MAX_FORWARD_EXTRAPOLATION = 1.0
 const TRAIL_VEL_THRESHOLD_PX = 4
 
 // MediaPipe BlazePose landmark indices
@@ -376,14 +383,14 @@ function destroyPlayerLayers(layers: PlayerLayers) {
   layers.main.destroy()
 }
 
-export function PixiCanvas({ gameState }: PixiCanvasProps) {
+export function PixiCanvas({ gameState, poseStreamRef, onHeavyHit }: PixiCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const appRef = useRef<Application | null>(null)
+  const onHeavyHitRef = useRef(onHeavyHit)
+  onHeavyHitRef.current = onHeavyHit
   const playerLayersRef = useRef<PlayerLayers[]>([])
   const emitterRef = useRef<SparkEmitter | null>(null)
 
-  const prevPosesRef = useRef<(PoseKeypoint[] | null)[]>([null, null])
-  const nextPosesRef = useRef<(PoseKeypoint[] | null)[]>([null, null])
   const poseBuffersRef = useRef<PoseKeypoint[][]>([
     createPoseBuffer(),
     createPoseBuffer(),
@@ -392,8 +399,6 @@ export function PixiCanvas({ gameState }: PixiCanvasProps) {
     createScreenPointBuffer(),
     createScreenPointBuffer(),
   ])
-  const lastTickTimeRef = useRef<number | null>(null)
-  const expectedTickIntervalRef = useRef<number>(DEFAULT_TICK_INTERVAL_MS)
   const lastEmittedTickRef = useRef<number>(-1)
   const tickerHandlerRef = useRef<((ticker: { deltaTime: number }) => void) | null>(null)
   const armTrailRef = useRef<ArmTrailSnapshot[]>([createArmTrail(), createArmTrail()])
@@ -440,30 +445,18 @@ export function PixiCanvas({ gameState }: PixiCanvasProps) {
       appRef.current = app
 
       const handler = (ticker: { deltaTime: number }) => {
-        const lastTickTime = lastTickTimeRef.current
-        let t: number
-        if (lastTickTime == null) {
-          t = 1
-        } else {
-          const interval = expectedTickIntervalRef.current
-          const elapsed = performance.now() - lastTickTime
-          const raw = interval > 0 ? elapsed / interval : 1
-          if (!Number.isFinite(raw)) {
-            t = 1
-          } else {
-            t = Math.max(0, Math.min(MAX_EXTRAPOLATION_T, raw))
-          }
-        }
-
+        const now = performance.now()
         // PixiJS v8: renderer.width/height are already in CSS pixels.
         const renderer = app.renderer
         const w = renderer.width
         const h = renderer.height
 
         const layersList = playerLayersRef.current
+        const stream = poseStreamRef.current
         for (let slot = 0; slot < 2; slot += 1) {
-          const prev = prevPosesRef.current[slot]
-          const next = nextPosesRef.current[slot]
+          const player = stream.players[slot]
+          const next = player.next
+          const prev = player.prev
           const layers = layersList[slot]
           if (!layers) {
             continue
@@ -478,11 +471,24 @@ export function PixiCanvas({ gameState }: PixiCanvasProps) {
             armTrail.valid = false
             continue
           }
-          const pose = prev
-            ? t <= 1
-              ? interpolatePosesInto(prev, next, t, poseBuffersRef.current[slot])
-              : extrapolatePosesInto(prev, next, t, poseBuffersRef.current[slot])
-            : next
+          // Always extrapolate FORWARD from `next` (the latest received
+          // pose). The classic prev->next interpolation buffer renders one
+          // full network interval behind real-time; here we instead push
+          // the rendered position ahead of the last packet by up to
+          // MAX_FORWARD_EXTRAPOLATION ticks of (next - prev) velocity.
+          let pose: PoseKeypoint[]
+          if (prev && player.expectedIntervalMs > 0) {
+            const elapsed = now - player.lastArrivalMs
+            const rawForward = elapsed / player.expectedIntervalMs
+            const forward = Number.isFinite(rawForward)
+              ? Math.max(0, Math.min(MAX_FORWARD_EXTRAPOLATION, rawForward))
+              : 0
+            pose = extrapolatePosesInto(
+              prev, next, 1 + forward, poseBuffersRef.current[slot],
+            )
+          } else {
+            pose = next
+          }
           const side: Side = slot === 0 ? 'left' : 'right'
           const currentScreenPts = screenPointBuffersRef.current[slot]
           const glowColor = slot === 0 ? PLAYER_GLOW_COLORS[0] : PLAYER_GLOW_COLORS[1]
@@ -561,39 +567,24 @@ export function PixiCanvas({ gameState }: PixiCanvasProps) {
       emitterRef.current = null
       playerLayersRef.current = []
       tickerHandlerRef.current = null
-      prevPosesRef.current = [null, null]
-      nextPosesRef.current = [null, null]
       poseBuffersRef.current = [createPoseBuffer(), createPoseBuffer()]
       screenPointBuffersRef.current = [
         createScreenPointBuffer(),
         createScreenPointBuffer(),
       ]
-      lastTickTimeRef.current = null
-      expectedTickIntervalRef.current = DEFAULT_TICK_INTERVAL_MS
       lastEmittedTickRef.current = -1
       armTrailRef.current = [createArmTrail(), createArmTrail()]
     }
   }, [])
 
+  // Pose data no longer flows through gameState — it streams via
+  // `poseStreamRef` (see useSpectatorSocket and the ticker handler above).
+  // The 60Hz game_state channel is now used purely for HP, recent hits, and
+  // round/match metadata, none of which is hot-path-latency sensitive.
   useEffect(() => {
     if (!gameState) {
       return
     }
-
-    const now = performance.now()
-    const previousTickTime = lastTickTimeRef.current
-    if (previousTickTime != null) {
-      const delta = now - previousTickTime
-      if (Number.isFinite(delta) && delta > 0) {
-        const current = expectedTickIntervalRef.current
-        expectedTickIntervalRef.current =
-          current * (1 - TICK_EWMA_ALPHA) + delta * TICK_EWMA_ALPHA
-      }
-    }
-
-    prevPosesRef.current = [nextPosesRef.current[0], nextPosesRef.current[1]]
-    nextPosesRef.current = [gameState.poses[0], gameState.poses[1]]
-    lastTickTimeRef.current = now
 
     const emitter = emitterRef.current
     const app = appRef.current
@@ -612,6 +603,7 @@ export function PixiCanvas({ gameState }: PixiCanvasProps) {
         const projected = projectXY(hit.position, side, w, h)
         emitter.emit(projected.x, projected.y, hit.damage)
         sfx.play(hit.damage >= 10 ? 'hit_heavy' : 'hit_light')
+        if (hit.damage >= 10) onHeavyHitRef.current?.()
       }
 
       lastEmittedTickRef.current = gameState.tick

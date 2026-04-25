@@ -91,6 +91,15 @@ class MsgGameState(BaseModel):
     remaining_time: float
 
 
+class MsgPoseUpdate(BaseModel):
+    """Pushed to spectators on every pose_frame arrival, decoupled from the
+    60Hz game-state tick. Carries only the bits needed to drive overlay
+    rendering, so the overlay updates at the mobile capture rate (~60Hz)."""
+    type: Literal["pose_update"] = "pose_update"
+    player: Literal[1, 2]
+    keypoints: list[PoseKeypoint]
+
+
 class MsgRoundStart(BaseModel):
     type: Literal["round_start"] = "round_start"
     round_number: int

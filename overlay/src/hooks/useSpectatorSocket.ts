@@ -3,6 +3,8 @@ import type {
   HpPair,
   MsgGameState,
   MsgPlayerDisconnected,
+  MsgPoseUpdate,
+  PoseKeypoint,
   ServerMessage,
   PlayerSlot,
 } from '../protocol'
@@ -14,12 +16,50 @@ export interface RoundState {
   finalHp?: HpPair
 }
 
+// Per-player pose snapshot. The renderer reads this every Pixi frame and
+// extrapolates forward from `next` using the (next - prev) velocity, so the
+// overlay can render poses that are *ahead* of the last network packet
+// instead of one full network interval behind it.
+export interface PlayerPoseState {
+  prev: PoseKeypoint[] | null
+  next: PoseKeypoint[] | null
+  // performance.now() timestamp at which `next` arrived locally.
+  lastArrivalMs: number
+  // EWMA of recent inter-arrival gaps. Used to normalize the forward
+  // extrapolation factor so prediction speed scales with the actual mobile
+  // send rate (which can vary with device, battery, throttling).
+  expectedIntervalMs: number
+}
+
+export interface PoseStream {
+  players: [PlayerPoseState, PlayerPoseState]
+}
+
 interface SpectatorSocketState {
   gameState: MsgGameState | null
   roundState: RoundState | null
   matchWinner: PlayerSlot | null
   connected: boolean
   disconnectedPlayer: PlayerSlot | null
+  // Stable across renders. PixiCanvas reads this every frame instead of
+  // re-rendering React on each pose update.
+  poseStreamRef: React.MutableRefObject<PoseStream>
+}
+
+const DEFAULT_POSE_INTERVAL_MS = 16
+const POSE_INTERVAL_EWMA_ALPHA = 0.1
+
+function makePlayerPoseState(): PlayerPoseState {
+  return {
+    prev: null,
+    next: null,
+    lastArrivalMs: 0,
+    expectedIntervalMs: DEFAULT_POSE_INTERVAL_MS,
+  }
+}
+
+function makePoseStream(): PoseStream {
+  return { players: [makePlayerPoseState(), makePlayerPoseState()] }
 }
 
 function toWebSocketBase(url: string) {
@@ -38,7 +78,7 @@ function spectatorUrl(serverUrl: string, roomCode: string) {
   return `${toWebSocketBase(serverUrl)}/ws/spectator/${encodeURIComponent(roomCode)}`
 }
 
-type IncomingMessage = ServerMessage | MsgPlayerDisconnected
+type IncomingMessage = ServerMessage | MsgPlayerDisconnected | MsgPoseUpdate
 
 function isIncomingMessage(value: unknown): value is IncomingMessage {
   return (
@@ -64,6 +104,7 @@ export function useSpectatorSocket(
     null,
   )
   const roundNumberRef = useRef(1)
+  const poseStreamRef = useRef<PoseStream>(makePoseStream())
 
   useEffect(() => {
     let closed = false
@@ -89,6 +130,27 @@ export function useSpectatorSocket(
         }
 
         if (!isIncomingMessage(parsed)) {
+          return
+        }
+
+        if (parsed.type === 'pose_update') {
+          // Hot path: ~120 messages/sec (60Hz x 2 players). Mutate the ref
+          // in place — no setState, no re-render. PixiCanvas's ticker will
+          // pick this up on the next frame.
+          const slotIdx = parsed.player - 1
+          const player = poseStreamRef.current.players[slotIdx]
+          const now = performance.now()
+          if (player.lastArrivalMs > 0) {
+            const delta = now - player.lastArrivalMs
+            if (delta > 0 && Number.isFinite(delta)) {
+              player.expectedIntervalMs =
+                player.expectedIntervalMs * (1 - POSE_INTERVAL_EWMA_ALPHA) +
+                delta * POSE_INTERVAL_EWMA_ALPHA
+            }
+          }
+          player.prev = player.next
+          player.next = parsed.keypoints
+          player.lastArrivalMs = now
           return
         }
 
@@ -151,5 +213,12 @@ export function useSpectatorSocket(
     }
   }, [roomCode, serverUrl])
 
-  return { connected, disconnectedPlayer, gameState, matchWinner, roundState }
+  return {
+    connected,
+    disconnectedPlayer,
+    gameState,
+    matchWinner,
+    roundState,
+    poseStreamRef,
+  }
 }

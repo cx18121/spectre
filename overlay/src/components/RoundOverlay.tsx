@@ -11,6 +11,8 @@ interface RoundOverlayProps {
 export function RoundOverlay({ roundState, matchWinner }: RoundOverlayProps) {
   const [showStart, setShowStart] = useState(false);
   const [showEnd, setShowEnd] = useState(false);
+  const [showFlash, setShowFlash] = useState(false);
+  const flashKeyRef = useRef(0);
   const [startRound, setStartRound] = useState<number | null>(null);
   const [endRound, setEndRound] = useState<number | null>(null);
   const [endWinner, setEndWinner] = useState<PlayerSlot | null>(null);
@@ -71,6 +73,9 @@ export function RoundOverlay({ roundState, matchWinner }: RoundOverlayProps) {
         setEndWinner(roundState.winner);
         setShowEnd(true);
         sfx.play('round_end');
+        flashKeyRef.current += 1;
+        setShowFlash(true);
+        window.setTimeout(() => setShowFlash(false), 450);
 
         if (endTimerRef.current !== null) {
           window.clearTimeout(endTimerRef.current);
@@ -110,6 +115,9 @@ export function RoundOverlay({ roundState, matchWinner }: RoundOverlayProps) {
 
   return (
     <>
+      {showFlash && (
+        <div key={`flash-${flashKeyRef.current}`} className="round-end-flash" />
+      )}
       {countdown && (
         <div key={countdown} className="round-flash">
           {countdown}
@@ -127,6 +135,7 @@ export function RoundOverlay({ roundState, matchWinner }: RoundOverlayProps) {
       )}
       {hasMatch && (
         <div className="match-end-overlay">
+          <div className="ko-text">K.O.</div>
           <div className="match-end-title">
             PLAYER {matchWinner} WINS THE MATCH
           </div>

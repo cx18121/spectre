@@ -27,7 +27,10 @@ interface GameScreenProps {
   onPlayAgain: () => void;
 }
 
-const POSE_FRAME_INTERVAL_MS = 1000 / 30;
+// 60Hz send rate so the overlay updates at the camera capture rate. The
+// previous 30Hz throttle halved the data rate on devices where MediaPipe
+// already produces ~60Hz, baking up to 33ms of jitter into every punch.
+const POSE_FRAME_INTERVAL_MS = 1000 / 60;
 
 export function GameScreen({
   status,
@@ -48,6 +51,8 @@ export function GameScreen({
   const [countdown, setCountdown] = useState<string | null>(null);
   const countdownTimersRef = useRef<number[]>([]);
   const lastCountdownRoundRef = useRef<number | null>(null);
+  const [directionFaded, setDirectionFaded] = useState(false);
+  const directionTimerRef = useRef<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const { error: cameraError, ready: cameraReady } = useCamera(videoRef);
@@ -67,9 +72,8 @@ export function GameScreen({
   // Stream pose frames during BOTH calibration and match. The server needs
   // calibration-window frames to derive skeleton metrics (per
   // docs/plans/server-todo.md); only sending during 'match' starves that
-  // pipeline and forces fallback hitbox scaling. Throttled to 30fps via the
-  // last-send timestamp; MediaPipe may produce more frames than that on a
-  // fast device.
+  // pipeline and forces fallback hitbox scaling. Throttled to 60fps via the
+  // last-send timestamp.
   const lastSendRef = useRef(0);
   useEffect(() => {
     if ((phase !== 'match' && phase !== 'calibration') || !keypoints) return;
@@ -129,6 +133,16 @@ export function GameScreen({
   useEffect(() => {
     return () => { countdownTimersRef.current.forEach(id => window.clearTimeout(id)); };
   }, []);
+
+  useEffect(() => {
+    if (phase !== 'match') return;
+    setDirectionFaded(false);
+    if (directionTimerRef.current !== null) window.clearTimeout(directionTimerRef.current);
+    directionTimerRef.current = window.setTimeout(() => setDirectionFaded(true), 10000);
+    return () => {
+      if (directionTimerRef.current !== null) window.clearTimeout(directionTimerRef.current);
+    };
+  }, [phase, roundNumber]);
 
   // Reset the READY gate whenever calibration (re)starts so the player
   // must press READY again each round — including after a rematch.
@@ -203,7 +217,10 @@ export function GameScreen({
       ) : null}
 
       {phase !== 'ended' ? (
-        <div className={`face-direction face-direction-slot${playerSlot}`}>
+        <div
+          className={`face-direction face-direction-slot${playerSlot}`}
+          style={{ opacity: directionFaded ? 0 : 1, transition: 'opacity 1s ease' }}
+        >
           {playerSlot === 1 ? '▶  Face right' : 'Face left  ◀'}
         </div>
       ) : null}

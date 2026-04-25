@@ -4,6 +4,7 @@ export type {
   MsgGameState,
   MsgMatchEnd,
   MsgPlayerDisconnected,
+  MsgPoseUpdate,
   MsgRoundEnd,
   MsgRoundStart,
   PlayerSlot,

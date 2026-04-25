@@ -123,6 +123,15 @@ export interface MsgGameState {
   remaining_time: number;
 }
 
+// Pushed to spectators the moment a pose_frame arrives from a mobile client,
+// decoupled from the 60Hz game-state tick so the overlay can render at the
+// mobile capture rate (~60Hz) without waiting on the server tick.
+export interface MsgPoseUpdate {
+  type: "pose_update";
+  player: 1 | 2;
+  keypoints: PoseKeypoint[];
+}
+
 export type InboundServerMsg =
   | MsgJoined
   | MsgPongFromServer
@@ -134,10 +143,12 @@ export type InboundServerMsg =
   | MsgRoundStart
   | MsgRoundEnd
   | MsgMatchEnd
-  | MsgGameState;
+  | MsgGameState
+  | MsgPoseUpdate;
 
 export type ServerMessage =
   | MsgGameState
+  | MsgPoseUpdate
   | MsgRoundStart
   | MsgRoundEnd
   | MsgMatchEnd;
