@@ -28,12 +28,13 @@ Phone A (mobile client)          Phone B (mobile client)
                     Overlay Renderer
                     (React + PixiJS)
                     silhouettes, HP bars,
-                    sparks, subtitles, TTS
+                    visual effects, commentary
+
 ```
 
 ## Setup
 
-You need Python 3.11+, Node 20+, and `cloudflared` if you want internet play.
+You need Python 3.11+ and Node 20+.
 
 ```bash
 git clone https://github.com/cx18121/claude-hackathon26.git
@@ -52,11 +53,6 @@ cd mobile && npm install && cd ..
 # Overlay
 cd overlay && npm install && cd ..
 ```
-
-Install `cloudflared` if you want to play across the internet:
-- macOS: `brew install cloudflared`
-- Linux: `apt install cloudflared`
-- Windows: `winget install cloudflared`
 
 For the AI commentator, drop your keys into `server/.env`:
 
@@ -84,16 +80,8 @@ Overlay:        http://<LAN_IP>:8000/overlay?room=<CODE>
 Player 1 phone: http://<LAN_IP>:8000/mobile?room=<CODE>&slot=1
 Player 2 phone: http://<LAN_IP>:8000/mobile?room=<CODE>&slot=2
 ```
-
-### Across the internet (Cloudflare Tunnel)
-
-```bash
-bash scripts/tunnel.sh
-```
-
-The script starts the server with a Cloudflare quick tunnel and prints a `trycloudflare.com` URL plus a QR code for the Player 2 link. Share the URL with the other player and use the printed `/mobile?...&slot=1` / `&slot=2` and `/overlay?...` links from the launcher banner.
-
-### Across blocked networks (Tailscale)
+### For optimal 
+across the internet (Tailscale)
 
 If you are on eduroam, hotel WiFi, or anywhere that blocks LAN discovery, use Tailscale instead. Every machine needs Tailscale installed and signed in to the same tailnet.
 
@@ -103,9 +91,17 @@ bash scripts/tailscale.sh
 
 The script auto-detects your Tailscale IP, sets up `tailscale serve` for HTTPS (so phone browsers stop blocking the camera), and prints share-ready URLs.
 
+### Across the internet with reduced performance (Cloudflare Tunnel)
+
+```bash
+bash scripts/tunnel.sh
+```
+
+The script starts the server with a Cloudflare quick tunnel and prints a `trycloudflare.com` URL plus a QR code for the Player 2 link. Share the URL with the other player and use the printed `/mobile?...&slot=1` / `&slot=2` and `/overlay?...` links from the launcher banner.
+
 ## Playing a match
 
-1. Both players open the camera capture URL on their phones/laptops with different slot numbers.
+1. Both players open the camera capture URL on their phones/laptops.
 2. The host opens the overlay on a laptop or TV browser.
 3. Each player completes a short calibration: hold a T-pose, then throw 3 full-speed practice punches so the server can learn your reach and punch velocity.
 4. The match starts once both players finish calibrating and are ready.
@@ -131,5 +127,5 @@ docs/        Original sprint plans and design notes
 | Pose        | MediaPipe Tasks Vision (Pose Landmarker)                       |
 | Mobile      | Vite, React 18, TypeScript                                     |
 | Overlay     | Vite, React 18, TypeScript, pixi.js v8                         |
-| Commentator | Claude (Anthropic SDK) + ElevenLabs           |
+| Commentator | Claude (Anthropic SDK) + ElevenLabs                            |
 | Transport   | WebSockets, Cloudflare Tunnel (quick tunnel) or Tailscale      |
