@@ -1,5 +1,7 @@
 # spectre
 
+[demo](https://www.youtube.com/watch?v=Afx3NxmBlJA&feature=youtu.be)
+
 A real-time 1v1 boxing game that turns your movement into gameplay. Throw real punches and kicks at your phone cameras and watch your silhouette fight in a live browser overlay. 
 
 Built for the Cornell Claude Builders Club Hackathon, spring 2026, by Charlie Xue, Akhil Chilaka, Yosef Mimarbasi, and Adi Prathapa. 
