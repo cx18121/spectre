@@ -6,6 +6,7 @@ RUN npm ci && npm run build
 
 FROM node:20-slim AS mobile-builder
 WORKDIR /mobile
+COPY shared/ /shared/
 COPY mobile/ ./
 RUN npm ci && npm run build
 
