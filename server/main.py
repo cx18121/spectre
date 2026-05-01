@@ -203,12 +203,28 @@ def landing():
         btn.disabled = false;
       }
     });
-    function goJoin() {
+    async function goJoin() {
       const code = document.getElementById('code').value.trim().toUpperCase();
-      if (code.length === 6) {
-        window.location.href = '/rooms/' + code;
-      } else {
+      if (code.length !== 6) {
         document.getElementById('err').textContent = 'Enter a 6-character room code.';
+        return;
+      }
+      const btn = document.getElementById('join');
+      btn.textContent = 'Joining...';
+      btn.disabled = true;
+      try {
+        const res = await fetch('/rooms/' + code, { method: 'HEAD' });
+        if (res.ok) {
+          window.location.href = '/rooms/' + code;
+        } else {
+          document.getElementById('err').textContent = 'Room not found.';
+          btn.textContent = 'Join';
+          btn.disabled = false;
+        }
+      } catch {
+        document.getElementById('err').textContent = 'Could not reach server.';
+        btn.textContent = 'Join';
+        btn.disabled = false;
       }
     }
     document.getElementById('join').addEventListener('click', goJoin);
