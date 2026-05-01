@@ -35,12 +35,15 @@ export interface PoseStream {
   players: [PlayerPoseState, PlayerPoseState]
 }
 
+export interface LobbyState { p1: boolean; p2: boolean }
+
 interface SpectatorSocketState {
   gameState: MsgGameState | null
   roundState: RoundState | null
   matchWinner: PlayerSlot | null
   wins: [number, number]
   maxWins: number
+  lobbyState: LobbyState
   connected: boolean
   disconnectedPlayer: PlayerSlot | null
   // Stable across renders. PixiCanvas reads this every frame instead of
@@ -106,6 +109,7 @@ export function useSpectatorSocket(
   const [matchWinner, setMatchWinner] = useState<PlayerSlot | null>(null)
   const [wins, setWins] = useState<[number, number]>([0, 0])
   const [maxWins, setMaxWins] = useState<number>(2)
+  const [lobbyState, setLobbyState] = useState<LobbyState>({ p1: false, p2: false })
   const [connected, setConnected] = useState(false)
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<PlayerSlot | null>(
     null,
@@ -160,6 +164,11 @@ export function useSpectatorSocket(
           player.prev = player.next
           player.next = parsed.keypoints
           player.lastArrivalMs = now
+          return
+        }
+
+        if (parsed.type === 'lobby_update') {
+          setLobbyState({ p1: parsed.p1, p2: parsed.p2 })
           return
         }
 
@@ -240,6 +249,7 @@ export function useSpectatorSocket(
     matchWinner,
     wins,
     maxWins,
+    lobbyState,
     roundState,
     poseStreamRef,
     socket,

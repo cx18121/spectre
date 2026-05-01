@@ -74,7 +74,7 @@ export interface CommentaryState {
   active: boolean
 }
 
-export function useCommentary(socket: WebSocket | null, audioEnabled: boolean): CommentaryState {
+export function useCommentary(socket: WebSocket | null, audioEnabled: boolean, commentaryVolume = 1.0): CommentaryState {
   const [state, setState] = useState<CommentaryState>({ text: '', id: 0, active: false })
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -85,11 +85,12 @@ export function useCommentary(socket: WebSocket | null, audioEnabled: boolean): 
   const currentCallRef = useRef<number>(-1)
   const audioEnabledRef = useRef(audioEnabled)
   audioEnabledRef.current = audioEnabled
+  const commentaryVolumeRef = useRef(commentaryVolume)
+  commentaryVolumeRef.current = commentaryVolume
 
-  // Boost factor applied to commentary playback. >1.0 amplifies above the
-  // raw mp3 level — ElevenLabs output sits well below 0 dBFS, so a 2.5×
-  // gain (~+8 dB) lifts it above the SFX layer without clipping.
-  const COMMENTARY_GAIN = 2.5
+  // Base boost: ElevenLabs output sits well below 0 dBFS; 2.5× brings it
+  // above the SFX layer. User volume multiplies on top of this.
+  const BASE_GAIN = 2.5
 
   // Lazily create the singleton <audio> element wired through a Web Audio
   // graph: <audio> -> MediaElementSource -> GainNode -> destination.
@@ -107,7 +108,7 @@ export function useCommentary(socket: WebSocket | null, audioEnabled: boolean): 
       const ctx = new Ctor()
       const source = ctx.createMediaElementSource(el)
       const gain = ctx.createGain()
-      gain.gain.value = COMMENTARY_GAIN
+      gain.gain.value = BASE_GAIN * commentaryVolumeRef.current
       source.connect(gain).connect(ctx.destination)
       audioCtxRef.current = ctx
       gainRef.current = gain

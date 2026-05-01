@@ -23,6 +23,7 @@ const fallbackTones: Record<SfxName, { frequency: number; duration: number; gain
 
 let audioUnlocked = false
 let audioContext: AudioContext | null = null
+let globalSfxVolume = 1.0
 
 function getAudioContext() {
   audioContext ??= new AudioContext()
@@ -81,23 +82,19 @@ class SfxPlayer {
   }
 
   play(name: SfxName, volume = 1) {
-    if (!audioUnlocked) {
-      return
-    }
-
+    if (!audioUnlocked) return
+    const effective = Math.max(0, Math.min(1, volume * globalSfxVolume))
     const source = this.sounds.get(name)
     const sound = source?.cloneNode(true) as HTMLAudioElement | undefined
-
     if (!sound) {
-      playFallbackTone(name, volume)
+      playFallbackTone(name, effective)
       return
     }
-
     try {
-      sound.volume = Math.max(0, Math.min(1, volume))
-      sound.play().catch(() => playFallbackTone(name, volume))
+      sound.volume = effective
+      sound.play().catch(() => playFallbackTone(name, effective))
     } catch {
-      playFallbackTone(name, volume)
+      playFallbackTone(name, effective)
     }
   }
 }
@@ -105,20 +102,31 @@ class SfxPlayer {
 export const sfx = new SfxPlayer()
 
 let soundtrackAudio: HTMLAudioElement | null = null
+let bgmVolume = 0.21
 
 function startSoundtrack() {
   if (soundtrackAudio) return
   try {
     soundtrackAudio = new Audio(`${import.meta.env.BASE_URL}sfx/soundtrack.mp3`)
     soundtrackAudio.loop = true
-    soundtrackAudio.volume = 0.21
-    soundtrackAudio.play().catch(() => {
-      playFallbackTone('round_bell', 0.3)
-    })
+    soundtrackAudio.volume = bgmVolume
+    soundtrackAudio.play().catch(() => playFallbackTone('round_bell', 0.3))
   } catch (error) {
     console.warn('soundtrack failed to start', error)
   }
 }
+
+export function setSfxVolume(v: number) {
+  globalSfxVolume = Math.max(0, Math.min(1, v))
+}
+
+export function setBgmVolume(v: number) {
+  bgmVolume = Math.max(0, Math.min(1, v))
+  if (soundtrackAudio) soundtrackAudio.volume = bgmVolume
+}
+
+export function getSfxVolume() { return globalSfxVolume }
+export function getBgmVolume() { return bgmVolume }
 
 export function unlockSfx() {
   audioUnlocked = true

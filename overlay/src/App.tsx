@@ -4,10 +4,13 @@ import { HudLayer } from './components/HudLayer'
 import { ParallaxBackground } from './components/ParallaxBackground'
 import { PixiCanvas } from './components/PixiCanvas'
 import { RoundOverlay } from './components/RoundOverlay'
+import { SettingsPanel, DEFAULT_AUDIO_SETTINGS } from './components/SettingsPanel'
+import { WaitingOverlay } from './components/WaitingOverlay'
 import { useCommentary } from './hooks/useCommentary'
 import { useSpectatorSocket } from './hooks/useSpectatorSocket'
 import { unlockSfx } from './lib/sfx'
 import type { HpPair } from './protocol'
+import type { AudioSettings } from './components/SettingsPanel'
 
 const params = new URLSearchParams(window.location.search)
 const serverUrl = params.get('server') ?? 'ws://localhost:8002'
@@ -21,13 +24,16 @@ function App() {
     matchWinner,
     wins,
     maxWins,
+    lobbyState,
     roundState,
     poseStreamRef,
     socket,
   } = useSpectatorSocket(serverUrl, roomCode)
+
   const hp: HpPair = gameState?.hp ?? [800, 800]
   const remainingTime = gameState?.remaining_time ?? 90
   const roundNumber = roundState?.number ?? 1
+  const isWaiting = roundState?.phase === 'waiting' && !gameState && !matchWinner
 
   const [shaking, setShaking] = useState(false)
   const shakeTimerRef = useRef<number | null>(null)
@@ -40,15 +46,19 @@ function App() {
     }, 450)
   }, [])
 
-  // Browsers block <audio> playback until a user gesture. Track unlock so
-  // the commentary hook only tries to play when allowed.
   const [audioUnlocked, setAudioUnlocked] = useState(false)
+  const [audioSettings, setAudioSettings] = useState<AudioSettings>(DEFAULT_AUDIO_SETTINGS)
+
   const handleUnlock = useCallback(() => {
     unlockSfx()
     setAudioUnlocked(true)
   }, [])
 
-  const commentary = useCommentary(socket, audioUnlocked)
+  const commentary = useCommentary(
+    socket,
+    audioUnlocked && audioSettings.commentaryOn,
+    audioSettings.commentary,
+  )
 
   return (
     <main className={`overlay-shell${shaking ? ' shaking' : ''}`}>
@@ -58,6 +68,9 @@ function App() {
         poseStreamRef={poseStreamRef}
         onHeavyHit={handleHeavyHit}
       />
+
+      {isWaiting && <WaitingOverlay lobbyState={lobbyState} />}
+
       <HudLayer
         connected={connected}
         disconnectedPlayer={disconnectedPlayer}
@@ -70,10 +83,10 @@ function App() {
         roomCode={roomCode}
       />
       <CommentarySubtitle commentary={commentary} />
-      <RoundOverlay
-        matchWinner={matchWinner}
-        roundState={roundState}
-      />
+      <RoundOverlay matchWinner={matchWinner} roundState={roundState} />
+
+      <SettingsPanel settings={audioSettings} onChange={setAudioSettings} />
+
       {!audioUnlocked && (
         <button className="audio-unlock" type="button" onClick={handleUnlock}>
           Click to start audio

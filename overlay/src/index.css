@@ -389,6 +389,257 @@ button { font: inherit; }
 .audio-ready .audio-unlock { display: none; }
 
 /* ============================================================
+   Waiting overlay (pre-game)
+   ============================================================ */
+
+.waiting-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  pointer-events: none;
+}
+
+.waiting-title {
+  font-family: 'Achafont', Inter, sans-serif;
+  font-size: clamp(48px, 8vw, 96px);
+  font-weight: 950;
+  letter-spacing: 0.18em;
+  color: oklch(from var(--text-primary) l c h / 0.12);
+}
+
+.waiting-slots {
+  display: flex;
+  align-items: center;
+  gap: clamp(32px, 6vw, 80px);
+}
+
+.waiting-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-dim);
+}
+
+.waiting-slot-p1 { color: var(--accent); }
+.waiting-slot-p2 { color: var(--accent-p2); }
+
+.waiting-slot-figure {
+  position: relative;
+  width: clamp(48px, 7vw, 80px);
+}
+
+.waiting-slot-figure svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.waiting-slot-ready .waiting-slot-figure svg [fill="currentColor"] {
+  opacity: 1;
+}
+
+.waiting-pulse-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: 0.35;
+  animation: waiting-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes waiting-pulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.35; }
+  50%       { transform: scale(1.1); opacity: 0.08; }
+}
+
+.waiting-slot-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.waiting-slot-status {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  opacity: 0.7;
+  animation: status-blink 1.4s ease-in-out infinite;
+}
+
+.waiting-slot-status.ready {
+  animation: none;
+  color: oklch(62% 0.18 145);
+  opacity: 1;
+}
+
+@keyframes status-blink {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 0.25; }
+}
+
+.waiting-vs {
+  font-family: 'Achafont', Inter, sans-serif;
+  font-size: clamp(20px, 3vw, 36px);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: oklch(from var(--text-dim) l c h / 0.4);
+}
+
+.waiting-hint {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: oklch(from var(--text-dim) l c h / 0.5);
+}
+
+/* ============================================================
+   Settings panel
+   ============================================================ */
+
+.settings-anchor {
+  position: absolute;
+  inset-block-end: 16px;
+  inset-inline-end: 16px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.settings-toggle {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: oklch(from var(--bg-mid) l c h / 0.85);
+  border: 1px solid var(--text-dim);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+  pointer-events: auto;
+}
+
+.settings-toggle:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+.settings-panel {
+  background: oklch(from var(--bg-mid) l c h / 0.96);
+  border: 1px solid oklch(from var(--text-dim) l c h / 0.4);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 220px;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+
+.settings-header {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.settings-divider {
+  height: 1px;
+  background: oklch(from var(--text-dim) l c h / 0.25);
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 64px 1fr 28px;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-row-toggle {
+  grid-template-columns: 64px 1fr;
+}
+
+.settings-row-disabled {
+  opacity: 0.35;
+}
+
+.settings-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.settings-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: oklch(from var(--text-dim) l c h / 0.3);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.settings-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.settings-slider::-webkit-slider-thumb:hover {
+  background: var(--text-primary);
+}
+
+.settings-slider:disabled {
+  cursor: not-allowed;
+}
+
+.settings-value {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-toggle-btn {
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  border: 1px solid var(--text-dim);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.1s;
+}
+
+.settings-toggle-btn.on {
+  border-color: var(--accent-bright);
+  color: var(--accent-bright);
+}
+
+/* ============================================================
    Commentary subtitle
    ============================================================ */
 

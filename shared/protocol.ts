@@ -176,7 +176,14 @@ export type InboundServerMsg =
   | MsgCommentaryAudio
   | MsgCommentaryEnd;
 
+export interface MsgLobbyUpdate {
+  type: "lobby_update";
+  p1: boolean;
+  p2: boolean;
+}
+
 export type ServerMessage =
+  | MsgLobbyUpdate
   | MsgGameState
   | MsgPoseUpdate
   | MsgRoundStart

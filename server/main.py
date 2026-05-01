@@ -222,6 +222,26 @@ def landing():
 </html>"""
 
 
+def _lobby_update_json(room) -> str:
+    return json.dumps({
+        "type": "lobby_update",
+        "p1": room.players[1].connected,
+        "p2": room.players[2].connected,
+    })
+
+async def _broadcast_lobby_update(room) -> None:
+    if not room.spectators:
+        return
+    msg = _lobby_update_json(room)
+    dead: set = set()
+    for ws in room.spectators:
+        try:
+            await ws.send_text(msg)
+        except Exception:
+            dead.add(ws)
+    room.spectators -= dead
+
+
 _FORMAT_TO_WINS = {"bo1": 1, "bo3": 2, "bo5": 3}
 
 @app.post("/rooms")
@@ -410,6 +430,8 @@ async def ws_player(websocket: WebSocket, room_code: str):
     slot.ws = websocket
     slot.connected = True
     log.info("Player %d %s to room %s", slot_num, "reconnected" if is_reconnect else "connected", room_code)
+    if not is_reconnect:
+        await _broadcast_lobby_update(room)
 
     async def ping_loop():
         import time
@@ -525,6 +547,7 @@ async def ws_player(websocket: WebSocket, room_code: str):
                     await opp_ws.send_text(MsgPlayerDisconnected(player=slot_num).model_dump_json())
                 except Exception:
                     pass
+            await _broadcast_lobby_update(room)
         elif room.game_loop is not None:
             opponent_connected = any(p.connected for p in room.players.values())
             if opponent_connected:
@@ -583,6 +606,7 @@ async def ws_spectator(websocket: WebSocket, room_code: str):
     await websocket.accept()
     room.spectators.add(websocket)
     log.info("Spectator connected to room %s", room_code)
+    await websocket.send_text(_lobby_update_json(room))
 
     try:
         while True:

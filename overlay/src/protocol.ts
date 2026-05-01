@@ -80,7 +80,14 @@ export interface MsgCommentaryEnd {
   id: number;
 }
 
+export interface MsgLobbyUpdate {
+  type: "lobby_update";
+  p1: boolean;
+  p2: boolean;
+}
+
 export type ServerMessage =
+  | MsgLobbyUpdate
   | MsgGameState
   | MsgPoseUpdate
   | MsgRoundStart
