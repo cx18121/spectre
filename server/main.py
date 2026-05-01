@@ -28,10 +28,20 @@ load_dotenv()
 PORT = int(os.getenv("PORT", "8000"))
 TUNNEL = os.getenv("TUNNEL", "true").lower() != "false"
 PUBLIC_URL = os.getenv("PUBLIC_URL", "").rstrip("/")
+MOBILE_URL = os.getenv("MOBILE_URL", "").rstrip("/")
+OVERLAY_URL = os.getenv("OVERLAY_URL", "").rstrip("/")
 
 
 def _server_url(request: Request) -> str:
     return PUBLIC_URL or str(request.base_url).rstrip("/")
+
+
+def _mobile_base(server_url: str) -> str:
+    return MOBILE_URL or f"{server_url}/mobile"
+
+
+def _overlay_base(server_url: str) -> str:
+    return OVERLAY_URL or f"{server_url}/overlay"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
@@ -207,9 +217,9 @@ def room_page(room_code: str, request: Request):
 
     server_url = _server_url(request)
     base_qs = urlencode({"server": server_url, "room": room_code})
-    p1_url = f"{server_url}/mobile?{base_qs}&slot=1"
-    p2_url = f"{server_url}/mobile?{base_qs}&slot=2"
-    ov_url = f"{server_url}/overlay?{base_qs}"
+    p1_url = f"{_mobile_base(server_url)}?{base_qs}&slot=1"
+    p2_url = f"{_mobile_base(server_url)}?{base_qs}&slot=2"
+    ov_url = f"{_overlay_base(server_url)}?{base_qs}"
 
     p1_qr = make_qr_b64(p1_url)
     p2_qr = make_qr_b64(p2_url)
