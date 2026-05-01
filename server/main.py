@@ -1,14 +1,15 @@
 from __future__ import annotations
 import asyncio
+import html as _html
 import json
 import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlencode
 
 import uvicorn
 from dotenv import load_dotenv
-import json as _json
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
@@ -26,6 +27,11 @@ load_dotenv()
 
 PORT = int(os.getenv("PORT", "8000"))
 TUNNEL = os.getenv("TUNNEL", "true").lower() != "false"
+PUBLIC_URL = os.getenv("PUBLIC_URL", "").rstrip("/")
+
+
+def _server_url(request: Request) -> str:
+    return PUBLIC_URL or str(request.base_url).rstrip("/")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
@@ -199,19 +205,21 @@ def room_page(room_code: str, request: Request):
     if room is None:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    server_url = str(request.base_url).rstrip("/")
-    p1_url = f"{server_url}/mobile?server={server_url}&room={room_code}&slot=1"
-    p2_url = f"{server_url}/mobile?server={server_url}&room={room_code}&slot=2"
-    ov_url = f"{server_url}/overlay?server={server_url}&room={room_code}"
+    server_url = _server_url(request)
+    base_qs = urlencode({"server": server_url, "room": room_code})
+    p1_url = f"{server_url}/mobile?{base_qs}&slot=1"
+    p2_url = f"{server_url}/mobile?{base_qs}&slot=2"
+    ov_url = f"{server_url}/overlay?{base_qs}"
 
     p1_qr = make_qr_b64(p1_url)
     p2_qr = make_qr_b64(p2_url)
     ov_qr = make_qr_b64(ov_url)
 
+    safe_code = _html.escape(room_code)
     urls_js = f"""
-    const P1 = {_json.dumps(p1_url)};
-    const P2 = {_json.dumps(p2_url)};
-    const OV = {_json.dumps(ov_url)};
+    const P1 = {json.dumps(p1_url)};
+    const P2 = {json.dumps(p2_url)};
+    const OV = {json.dumps(ov_url)};
     """
 
     return f"""<!DOCTYPE html>
@@ -219,7 +227,7 @@ def room_page(room_code: str, request: Request):
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Spectre — {room_code}</title>
+  <title>Spectre — {safe_code}</title>
   <style>
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{ font-family: monospace; background: #0a0a0a; color: #eee; min-height: 100vh;
@@ -234,7 +242,8 @@ def room_page(room_code: str, request: Request):
     .url {{ width: 100%; background: #0e0e0e; border: 1px solid #1e1e1e; border-radius: 4px;
             padding: 0.4rem 0.6rem; font-size: 0.6rem; word-break: break-all; color: #5af; line-height: 1.4; }}
     .btn {{ width: 100%; border-radius: 4px; padding: 0.5rem; cursor: pointer;
-            font-family: monospace; font-size: 0.8rem; border: 1px solid #2a2a2a; background: #1a1a1a; color: #bbb; }}
+            font-family: monospace; font-size: 0.8rem; border: 1px solid #2a2a2a; background: #1a1a1a; color: #bbb;
+            text-align: center; text-decoration: none; display: block; }}
     .btn:hover {{ background: #242424; }}
     .btn-open {{ background: #0e2a3a; border-color: #1e5a7a; color: #5af; }}
     .btn-open:hover {{ background: #183a4a; }}
@@ -246,7 +255,7 @@ def room_page(room_code: str, request: Request):
 <body>
   <a class="back" href="/">← New game</a>
   <h1>SPECTRE</h1>
-  <div class="code">{room_code}</div>
+  <div class="code">{safe_code}</div>
   <div class="cards">
     <div class="card">
       <h2>Player 1</h2>
@@ -254,7 +263,7 @@ def room_page(room_code: str, request: Request):
       <div class="url" id="u1"></div>
       <div class="notice" id="n1"></div>
       <button class="btn" id="cp1">Copy link</button>
-      <a id="a1" target="_blank" style="width:100%"><button class="btn btn-open" style="width:100%">Open</button></a>
+      <a class="btn btn-open" id="a1" target="_blank">Open</a>
     </div>
     <div class="card">
       <h2>Player 2</h2>
@@ -262,7 +271,7 @@ def room_page(room_code: str, request: Request):
       <div class="url" id="u2"></div>
       <div class="notice" id="n2"></div>
       <button class="btn" id="cp2">Copy link</button>
-      <a id="a2" target="_blank" style="width:100%"><button class="btn btn-open" style="width:100%">Open</button></a>
+      <a class="btn btn-open" id="a2" target="_blank">Open</a>
     </div>
     <div class="card">
       <h2>Overlay</h2>
@@ -270,7 +279,7 @@ def room_page(room_code: str, request: Request):
       <div class="url" id="u3"></div>
       <div class="notice" id="n3"></div>
       <button class="btn" id="cp3">Copy link</button>
-      <a id="a3" target="_blank" style="width:100%"><button class="btn btn-open" style="width:100%">Open</button></a>
+      <a class="btn btn-open" id="a3" target="_blank">Open</a>
     </div>
   </div>
   <script>
