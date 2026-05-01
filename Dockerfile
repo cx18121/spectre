@@ -1,5 +1,6 @@
 FROM node:20-slim AS overlay-builder
 WORKDIR /overlay
+COPY shared/ /shared/
 COPY overlay/ ./
 RUN npm ci && npm run build
 
