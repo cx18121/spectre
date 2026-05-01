@@ -15,15 +15,11 @@ interface HudLayerProps {
 
 const MAX_HP = 800
 
-function clampHp(value: number): number {
-  return Math.max(0, Math.min(MAX_HP, value))
-}
+function clampHp(v: number) { return Math.max(0, Math.min(MAX_HP, v)) }
 
-function formatTime(seconds: number): string {
-  const safe = Math.max(0, Math.floor(seconds))
-  const m = Math.floor(safe / 60)
-  const s = safe % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
+function formatTime(s: number) {
+  const t = Math.max(0, Math.floor(s))
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
 }
 
 function WinDots({ wins, maxWins, player }: { wins: number; maxWins: number; player: 1 | 2 }) {
@@ -49,43 +45,50 @@ export function HudLayer({
 }: HudLayerProps) {
   const p1Pct = clampHp(hp[0]) / MAX_HP
   const p2Pct = clampHp(hp[1]) / MAX_HP
-  const p1Low = p1Pct < 0.2
-  const p2Low = p2Pct < 0.2
 
-  const p1FillStyle: CSSProperties = { width: `${p1Pct * 100}%` }
-  const p2FillStyle: CSSProperties = { width: `${p2Pct * 100}%` }
+  const p1Style: CSSProperties = { width: `${p1Pct * 100}%` }
+  const p2Style: CSSProperties = { width: `${p2Pct * 100}%` }
 
   return (
     <div className="hud-layer">
-      <div className="top-bar">
-        <div className="hp-wrap">
-          <div className="player-label">Player 1</div>
-          <WinDots wins={wins[0]} maxWins={maxWins} player={1} />
-          <div className="hp-track">
-            <div className={`hp-fill hp-fill-p1${p1Low ? ' pulse' : ''}`} style={p1FillStyle} />
+      {/* Main HUD band */}
+      <div className="hud-band">
+        {/* Name + wins row */}
+        <div className="hud-names">
+          <div className="hud-p1-name">
+            <span className="hud-label">P1</span>
+            <WinDots wins={wins[0]} maxWins={maxWins} player={1} />
+          </div>
+          <div className="hud-center-name">
+            <div className="timer">{formatTime(remainingTime)}</div>
+            <div className="round-label">Round {round}</div>
+            <div className="room-pill">{connected ? roomCode : '···'}</div>
+          </div>
+          <div className="hud-p2-name">
+            <WinDots wins={wins[1]} maxWins={maxWins} player={2} />
+            <span className="hud-label">P2</span>
           </div>
         </div>
-        <div className="timer-stack">
-          <div className="timer">{formatTime(remainingTime)}</div>
-          <div className="round-label">Round {round}</div>
-        </div>
-        <div className="hp-wrap hp-wrap-right">
-          <div className="player-label">Player 2</div>
-          <WinDots wins={wins[1]} maxWins={maxWins} player={2} />
+
+        {/* HP bars row */}
+        <div className="hud-bars">
           <div className="hp-track">
-            <div className={`hp-fill hp-fill-p2${p2Low ? ' pulse' : ''}`} style={p2FillStyle} />
+            <div className={`hp-fill hp-fill-p1${p1Pct < 0.2 ? ' pulse' : ''}`} style={p1Style} />
+          </div>
+          <div className="hud-bars-sep" />
+          <div className="hp-track">
+            <div className={`hp-fill hp-fill-p2${p2Pct < 0.2 ? ' pulse' : ''}`} style={p2Style} />
           </div>
         </div>
       </div>
-      <div className={`connection-pill${connected ? ' is-connected' : ''}`}>
-        {connected ? roomCode : 'Connecting...'}
-      </div>
+
+      {/* Banners */}
       {disconnectedPlayer !== null ? (
-        <div className="latency-banner">
-          Player {disconnectedPlayer} disconnected — waiting for reconnect
+        <div className="hud-banner">
+          Player {disconnectedPlayer} disconnected — reconnecting…
         </div>
       ) : highLatency ? (
-        <div className="latency-banner">High latency detected</div>
+        <div className="hud-banner">High latency</div>
       ) : null}
     </div>
   )

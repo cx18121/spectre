@@ -130,172 +130,161 @@ button { font: inherit; }
   pointer-events: none;
 }
 
-.top-bar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.42fr) minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
-  width: min(1180px, calc(100vw - 32px));
-  margin: 18px auto 0;
+/* Dark gradient vignette + HUD content */
+.hud-band {
+  padding: 16px 20px 14px;
+  background: linear-gradient(to bottom,
+    rgba(0,0,0,0.78) 0%,
+    rgba(0,0,0,0.45) 55%,
+    transparent 100%
+  );
 }
 
 /* ============================================================
-   HP wrap + player label + win dots
+   Name row: P1 meta | timer center | P2 meta
    ============================================================ */
 
-.hp-wrap {
-  min-width: 0;
+.hud-names {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.hud-p1-name {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  align-items: center;
+  gap: 8px;
 }
 
-.hp-wrap-right {
-  text-align: right;
-  align-items: flex-end;
+.hud-p2-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
-.player-label {
+.hud-label {
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
+
+.hud-center-name {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.timer {
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.round-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.room-pill {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: oklch(from var(--text-dim) l c h / 0.6);
+  margin-top: 1px;
+}
+
+/* ============================================================
+   Win dots
+   ============================================================ */
 
 .win-dots {
   display: flex;
   gap: 5px;
 }
 
-.hp-wrap-right .win-dots {
-  flex-direction: row-reverse;
-}
-
 .win-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   border: 1px solid var(--text-dim);
   background: transparent;
-  transition: background 200ms ease, border-color 200ms ease;
+  transition: background 180ms ease, border-color 180ms ease;
 }
 
-.win-dot.filled-p1 {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-.win-dot.filled-p2 {
-  background: var(--accent-p2);
-  border-color: var(--accent-p2);
-}
+.win-dot.filled-p1 { background: var(--accent); border-color: var(--accent); }
+.win-dot.filled-p2 { background: var(--accent-p2); border-color: var(--accent-p2); }
 
 /* ============================================================
-   HP track + fill
+   HP bars row — two equal tracks split at center
    ============================================================ */
+
+.hud-bars {
+  display: grid;
+  grid-template-columns: 1fr 10px 1fr;
+  height: 36px;
+}
+
+.hud-bars-sep {
+  /* gap between the two bars — framing the center */
+}
 
 .hp-track {
   position: relative;
-  height: 28px;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
-  border: 1px solid oklch(from var(--gold) l c h / 0.3);
-  background: var(--bg-mid);
+  background: oklch(4% 0.005 22 / 0.85);
+  border: 1px solid oklch(from var(--gold) l c h / 0.18);
 }
 
 .hp-fill {
   position: absolute;
   inset-block: 0;
-  transition: width 100ms linear;
+  transition: width 90ms linear;
 }
 
-.hp-fill-p1 {
-  left: 0;
-  background: var(--accent);
-}
-
-.hp-fill-p2 {
-  right: 0;
-  background: var(--accent-p2);
-}
+.hp-fill-p1 { left: 0;  background: var(--accent); }
+.hp-fill-p2 { right: 0; background: var(--accent-p2); }
 
 .hp-fill.pulse {
-  animation: hp-pulse 700ms ease-in-out infinite;
+  animation: hp-pulse 650ms ease-in-out infinite;
 }
 
 @keyframes hp-pulse {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.45; }
+  50%       { opacity: 0.4; }
 }
 
 /* ============================================================
-   Timer + round label
+   Latency / disconnect banner
    ============================================================ */
 
-.timer-stack {
-  display: grid;
-  justify-items: center;
-  gap: 5px;
-  min-width: 120px;
-}
-
-.timer {
-  min-width: 114px;
-  padding: 6px 14px 7px;
-  border: 1px solid oklch(from var(--gold) l c h / 0.4);
-  background: var(--bg-mid);
-  color: var(--text-primary);
-  font-size: 34px;
-  font-weight: 900;
-  line-height: 1;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.round-label {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-
-/* ============================================================
-   Connection pill + latency banner
-   ============================================================ */
-
-.connection-pill {
+.hud-banner {
   position: absolute;
-  inset-block-start: 90px;
   inset-inline-start: 50%;
+  inset-block-end: 28px;
   transform: translateX(-50%);
-  padding: 4px 12px;
-  background: var(--bg-mid);
-  color: var(--text-dim);
-  font-size: 11px;
+  padding: 8px 16px;
+  border: 1px solid oklch(78% 0.14 85 / 0.45);
+  background: oklch(14% 0.05 85 / 0.92);
+  color: oklch(85% 0.1 85);
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.connection-pill.is-connected {
-  color: var(--text-secondary);
-}
-
-.latency-banner {
-  position: absolute;
-  inset-inline: 50%;
-  inset-block-end: 32px;
-  width: min(480px, calc(100vw - 32px));
-  transform: translateX(-50%);
-  padding: 10px 16px;
-  border: 1px solid oklch(78% 0.16 85 / 0.5);
-  background: oklch(18% 0.06 85 / 0.9);
-  color: oklch(88% 0.1 85);
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 /* ============================================================
@@ -509,18 +498,9 @@ button { font: inherit; }
    Responsive
    ============================================================ */
 
-@media (max-width: 720px) {
-  .top-bar {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    margin-block-start: 10px;
-  }
-
-  .timer-stack { order: -1; }
-  .timer { font-size: 28px; }
-
-  .connection-pill {
-    inset-block-start: auto;
-    inset-block-end: 16px;
-  }
+@media (max-width: 600px) {
+  .hud-band { padding: 10px 12px 10px; }
+  .hud-bars { height: 28px; }
+  .timer { font-size: 24px; }
+  .hud-bars-sep { width: 6px; }
 }
