@@ -12,7 +12,11 @@ pub async fn forward_broadcast_to_spectator(
     mut pose_rx: broadcast::Receiver<String>,
 ) {
     loop {
+        // biased: prioritise game_rx (authoritative game state) over pose_rx.
+        // Without biased, sustained 120-msg/sec pose traffic starves game_state
+        // delivery to spectators under high-frequency pose bursts (WR-03).
         tokio::select! {
+            biased;
             result = game_rx.recv() => match result {
                 Ok(msg) => {
                     if ws_sink.send(Message::Text(msg.into())).await.is_err() {
