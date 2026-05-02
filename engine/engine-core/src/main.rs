@@ -204,9 +204,56 @@ async fn ws_spectator(
 async fn handle_spectator(
     socket: axum::extract::ws::WebSocket,
     room_code: String,
-    _app: Arc<AppState>,
+    app: Arc<AppState>,
 ) {
+    use tokio::sync::oneshot;
+    use crate::room::RoomCmd;
+
+    // Get broadcast channels and cmd_tx — do NOT hold DashMap guard across await (Pitfall 4)
+    let (game_rx, pose_rx, cmd_tx) = match app.rooms.subscribe_spectator(&room_code) {
+        Some(channels) => channels,
+        None => {
+            tracing::warn!("spectator tried to join unknown room {}", room_code);
+            return;
+        }
+    };
+
     tracing::info!("spectator connected to room {}", room_code);
-    // TODO: wire to broadcast channels in Plan 04
-    let _ = socket;
+
+    let (mut ws_sink, mut ws_stream) = socket.split();
+
+    // FIX-02: Subscribe to broadcast BEFORE requesting snapshot (Pitfall 6)
+    // Subscription already active (game_rx and pose_rx are live receivers from subscribe_spectator)
+    // Now request snapshot from room actor via oneshot
+    let (reply_tx, reply_rx) = oneshot::channel();
+    if cmd_tx.send(RoomCmd::GetSnapshot { reply: reply_tx }).await.is_err() {
+        return;
+    }
+    let snapshot = match reply_rx.await {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+
+    // Send snapshot before entering broadcast forward loop (FIX-02)
+    if !crate::broadcast::send_snapshot(&mut ws_sink, snapshot).await {
+        return; // spectator disconnected during snapshot send
+    }
+
+    // Spawn spectator forward task (consumes ws_sink, game_rx, pose_rx)
+    let forward_handle = tokio::spawn(
+        crate::broadcast::forward_broadcast_to_spectator(ws_sink, game_rx, pose_rx)
+    );
+
+    // Drain spectator's inbound stream (keep-alive, discard all input like Python server)
+    // T-04-02: All inbound messages from spectators are discarded without parsing
+    while let Some(Ok(msg)) = ws_stream.next().await {
+        match msg {
+            axum::extract::ws::Message::Close(_) => break,
+            _ => {} // discard — spectators are read-only
+        }
+    }
+
+    // Spectator disconnected — abort the forward task
+    forward_handle.abort();
+    tracing::info!("spectator disconnected from room {}", room_code);
 }
