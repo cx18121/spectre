@@ -123,13 +123,19 @@ fn classify_region(target_y: f64, scale: f64) -> BodyRegion {
     else                           { BodyRegion::LegThigh }
 }
 
-/// Refined head region: chin vs face vs throat based on wrist landing height.
-/// Adds granularity to HeadFace classification (plan requirement: 9 regions).
+/// Refined head region: throat vs chin vs face based on wrist landing height.
+/// Three bands above head_y in ascending order (CR-03: HeadThroat was unreachable before).
+/// [head_y, head_y+0.10*scale) = throat (lowest, just above head boundary)
+/// [head_y+0.10*scale, head_y+0.20*scale) = chin
+/// [head_y+0.20*scale, ...) = face (highest)
 fn refine_head_region(wrist_y: f64, scale: f64) -> BodyRegion {
-    let mid_head = REL_HEAD_Y * scale + 0.2 * scale;
-    if wrist_y >= mid_head { BodyRegion::HeadFace }
-    else if wrist_y >= REL_HEAD_Y * scale { BodyRegion::HeadChin }
-    else { BodyRegion::HeadThroat }
+    let throat_y = REL_HEAD_Y * scale;
+    let chin_y   = REL_HEAD_Y * scale + 0.10 * scale;
+    let face_y   = REL_HEAD_Y * scale + 0.20 * scale;
+    if wrist_y >= face_y        { BodyRegion::HeadFace }
+    else if wrist_y >= chin_y   { BodyRegion::HeadChin }
+    else if wrist_y >= throat_y { BodyRegion::HeadThroat }
+    else                        { BodyRegion::HeadFace } // fallback (caller guarantees wrist_y >= head_y)
 }
 
 // ---------------------------------------------------------------------------
