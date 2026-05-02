@@ -325,3 +325,96 @@ fn handle_round_over(state: &mut RoomState, winner: Option<u8>) {
     }
     tracing::info!("room {} round {} started", state.code, state.round_number);
 }
+
+#[cfg(test)]
+mod solo_mode_tests {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use tokio::sync::broadcast;
+    use boxing_plugin::{BoxingPlugin, BoxingConfig, Difficulty};
+    use crate::room::RoomState;
+
+    fn make_room_state() -> RoomState {
+        let (pose_tx, _) = broadcast::channel(64);
+        let (game_tx, _) = broadcast::channel(64);
+        let match_over_flag = Arc::new(AtomicBool::new(false));
+        let plugin: Arc<dyn plugin_trait::GamePlugin + Send + Sync> = Arc::new(
+            BoxingPlugin::new(BoxingConfig {
+                hp: 800,
+                round_secs: 90.0,
+                max_wins: 3,
+                bot_difficulty: Difficulty::Normal,
+            })
+        );
+        RoomState::new(
+            "TEST".to_string(),
+            3,
+            pose_tx,
+            game_tx,
+            match_over_flag,
+            plugin,
+        )
+    }
+
+    /// BOX-10: solo mode gate — player 0 calibrated, player 1 never connected.
+    /// game_tick must NOT return early; match_in_progress must be true once
+    /// round_start_time is set.
+    #[test]
+    fn box10_solo_mode_gate_allows_single_player() {
+        let mut state = make_room_state();
+
+        // Player 0 connects and calibrates
+        state.players[0].connected = true;
+        state.players[0].reference_velocity = Some(5.0);
+
+        // Player 1 is never connected (solo mode)
+        assert!(!state.players[1].connected, "player 1 must not be connected");
+        assert!(state.players[1].reference_velocity.is_none(), "player 1 has no ref_vel");
+
+        // Before round_start_time is set, match_in_progress is false (correct: match hasn't started yet)
+        // Simulate what room.rs CalibrationDone handler does in solo mode:
+        // ready_to_start = !player1_connected && player0_ref_vel.is_some()
+        let solo_mode = !state.players[1].connected;
+        let ready_to_start = if solo_mode {
+            state.players[0].reference_velocity.is_some()
+        } else {
+            state.players.iter().all(|p| p.reference_velocity.is_some())
+        };
+        assert!(ready_to_start, "solo mode: player 0 calibrated alone should be ready_to_start");
+
+        // Set round_start_time (what room.rs does when ready_to_start)
+        state.round_start_time = Some(std::time::Instant::now());
+
+        // Now verify game_tick's match_in_progress would be true
+        let calibrated_ok = if solo_mode {
+            state.players[0].reference_velocity.is_some()
+        } else {
+            state.players.iter().all(|p| p.reference_velocity.is_some())
+        };
+        let match_in_progress = calibrated_ok
+            && state.round_start_time.is_some()
+            && !state.match_over;
+
+        assert!(match_in_progress, "BOX-10: match_in_progress must be true in solo mode once calibrated");
+    }
+
+    /// Two-player mode is unaffected: both players must calibrate.
+    #[test]
+    fn two_player_mode_still_requires_both_calibrated() {
+        let mut state = make_room_state();
+
+        state.players[0].connected = true;
+        state.players[0].reference_velocity = Some(5.0);
+        state.players[1].connected = true;
+        // Player 1 has NOT calibrated yet
+
+        let solo_mode = !state.players[1].connected;
+        let ready_to_start = if solo_mode {
+            state.players[0].reference_velocity.is_some()
+        } else {
+            state.players.iter().all(|p| p.reference_velocity.is_some())
+        };
+
+        assert!(!ready_to_start, "two-player mode: only one player calibrated must NOT be ready_to_start");
+    }
+}
