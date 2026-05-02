@@ -28,8 +28,8 @@ async fn main() {
     // Spawn room expiry background task (D-08)
     tokio::spawn(room_manager::expiry_task(state.rooms.rooms.clone()));
     let app = Router::new()
-        .route("/ws/player/:room_code", get(ws_player))
-        .route("/ws/spectator/:room_code", get(ws_spectator))
+        .route("/ws/player/{room_code}", get(ws_player))
+        .route("/ws/spectator/{room_code}", get(ws_spectator))
         .nest_service("/mobile", ServeDir::new("mobile/dist"))
         .nest_service("/overlay", ServeDir::new("overlay/dist"))
         .with_state(state);
