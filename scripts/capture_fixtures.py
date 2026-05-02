@@ -26,8 +26,9 @@ async def capture():
 
     # ---- ping/pong ----
     async with websockets.connect(f"{base}/ws/player/TESTFIX") as ws:
-        # Server sends MsgJoined on connect
-        joined_raw = await ws.recv()
+        # Rust server requires join-first: send MsgJoin before any other interaction
+        await ws.send(json.dumps({"type": "join", "room_code": "TESTFIX", "player_slot": 1}))
+        joined_raw = await asyncio.wait_for(ws.recv(), timeout=3.0)
         (FIXTURES_DIR / "msg_joined.json").write_text(joined_raw)
         print(f"captured msg_joined: {joined_raw[:80]}")
 
