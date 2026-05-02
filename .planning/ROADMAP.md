@@ -48,11 +48,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — plugin-trait crate: GamePlugin trait, TickContext, GameEvent (5 variants), BodyRegion (9 variants), PoseFrame/PoseKeypoint; workspace update
-- [ ] 02-02-PLAN.md — boxing-plugin utility modules: hit_detection.rs (punch/kick, guard, body regions), damage.rs (velocity-scaled); unit tests
-- [ ] 02-03-PLAN.md — boxing-plugin lib.rs: BoxingPlugin impl, BoxingState, bot.rs (BOT_KPS, tick_bot, difficulty); FIX-01 regression test
-- [ ] 02-04-PLAN.md — engine-core wiring: PLUG-06 normalization, TickContext construction, plugin.on_tick, dispatch_events, lifecycle hooks; cargo test --workspace
-- [ ] 02-05-PLAN.md — BOX-10 gap closure: solo/bot mode gate in game_loop.rs and room.rs; solo mode unit tests
+- [x] 02-01-PLAN.md — plugin-trait crate: GamePlugin trait, TickContext, GameEvent (5 variants), BodyRegion (9 variants), PoseFrame/PoseKeypoint; workspace update
+- [x] 02-02-PLAN.md — boxing-plugin utility modules: hit_detection.rs (punch/kick, guard, body regions), damage.rs (velocity-scaled); unit tests
+- [x] 02-03-PLAN.md — boxing-plugin lib.rs: BoxingPlugin impl, BoxingState, bot.rs (BOT_KPS, tick_bot, difficulty); FIX-01 regression test
+- [x] 02-04-PLAN.md — engine-core wiring: PLUG-06 normalization, TickContext construction, plugin.on_tick, dispatch_events, lifecycle hooks; cargo test --workspace
+- [x] 02-05-PLAN.md — BOX-10 gap closure: solo/bot mode gate in game_loop.rs and room.rs; solo mode unit tests
 
 ### Phase 3: Second Game + SDK
 **Goal**: A second game plugin is implemented using only the public GamePlugin trait with zero engine changes; the SDK documentation is sufficient for a developer (or LLM) to add a new game from scratch
