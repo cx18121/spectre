@@ -14,15 +14,16 @@ pub fn record_pong(samples: &mut Vec<f64>, original_t: f64) -> f64 {
     // Clamp: reject nonsensical RTT values (negative or > 5 seconds).
     // A client-controlled original_t could produce negative RTT (future timestamp)
     // or an absurdly large RTT (epoch 0), both of which break the fairness delay (CR-04).
+    // Always trim to max 10 samples first, then conditionally push (CR-04).
+    if samples.len() >= 10 {
+        let drain_to = samples.len() - 9;
+        samples.drain(0..drain_to);
+    }
     if rtt < 0.0 || rtt > 5000.0 {
         tracing::warn!("record_pong: implausible RTT {:.1}ms, discarding", rtt);
         return 0.0;
     }
     samples.push(rtt);
-    if samples.len() > 10 {
-        let drain_to = samples.len() - 10;
-        samples.drain(0..drain_to);
-    }
     rtt
 }
 
