@@ -195,6 +195,10 @@ impl GamePlugin for BoxingPlugin {
         // This matches Python _tick_bot behavior which does not reset the interval on rematch.
     }
 
+    fn max_wins(&self) -> u32 {
+        self.config.max_wins
+    }
+
     fn on_player_join(&self, slot: u8, state: &mut dyn Any) {
         let _ = state.downcast_mut::<BoxingState>()
             .expect("boxing plugin: state type mismatch");

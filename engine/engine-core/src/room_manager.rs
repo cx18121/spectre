@@ -64,7 +64,7 @@ impl RoomManager {
                     let last_disconnect = Arc::new(std::sync::Mutex::new(None::<Instant>));
                     let state = RoomState::new(
                         code.clone(),
-                        2, // default max_wins — overridden by CR-02 fix
+                        plugin.max_wins(), // CR-02: use value from plugin config
                         pose_tx.clone(),
                         game_tx.clone(),
                         Arc::clone(&match_over_flag),

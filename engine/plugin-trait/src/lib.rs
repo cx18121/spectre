@@ -139,6 +139,10 @@ pub trait GamePlugin: Send + Sync {
     /// This is a pure function: inputs in, events out. No network calls, no async.
     fn on_tick(&self, ctx: &TickContext, state: &mut dyn Any) -> Vec<GameEvent>;
 
+    /// Returns the number of round wins required to win the match (CR-02).
+    /// Default: 2. Override in your plugin to use config-driven values.
+    fn max_wins(&self) -> u32 { 2 }
+
     /// Called when a player's WebSocket connects to the room.
     fn on_player_join(&self, _slot: u8, _state: &mut dyn Any) {}
 
