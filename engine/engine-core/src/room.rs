@@ -162,8 +162,11 @@ fn build_snapshot(state: &RoomState) -> RoomSnapshot {
             msg_type: "round_start".to_string(),
             round_number: state.round_number,
         };
+        // WR-02: subtract warmup period and use shared constant (avoids drift if ROUND_DURATION changes)
+        use crate::game_loop::{ROUND_DURATION, ROUND_WARMUP};
         let elapsed = state.round_start_time.map_or(0.0, |t| t.elapsed().as_secs_f64());
-        let remaining = (90.0_f64 - elapsed).max(0.0);
+        let live_elapsed = (elapsed - ROUND_WARMUP).max(0.0);
+        let remaining = (ROUND_DURATION - live_elapsed).max(0.0);
         let gs = MsgGameState {
             msg_type: "game_state".to_string(),
             tick: state.tick,
