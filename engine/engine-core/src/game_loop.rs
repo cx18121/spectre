@@ -114,6 +114,8 @@ pub fn game_tick(state: &mut RoomState) {
                 }
             }
             state.match_over = true;
+            // Signal the shared flag so RoomHandle.is_expired() can observe match completion (CR-03)
+            state.match_over_flag.store(true, std::sync::atomic::Ordering::Relaxed);
             tracing::info!("room {} match ended, winner player {}", state.code, match_winner);
             return;
         }

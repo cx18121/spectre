@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use crate::protocol::{MsgPoseFrame, MsgLobbyUpdate, MsgGameState};
@@ -32,6 +33,8 @@ pub struct RoomState {
     pub wins: [u32; 2],
     pub round_start_time: Option<Instant>,
     pub match_over: bool,
+    /// Shared with RoomHandle so the expiry task can observe match completion (CR-03).
+    pub match_over_flag: Arc<std::sync::atomic::AtomicBool>,
     pub max_wins: u32,
     pub hp: [u32; 2],
     // Broadcast channel senders (rx subscribed by spectator handlers and outbound tasks)
@@ -40,7 +43,13 @@ pub struct RoomState {
 }
 
 impl RoomState {
-    pub fn new(code: String, max_wins: u32, pose_tx: broadcast::Sender<String>, game_tx: broadcast::Sender<String>) -> Self {
+    pub fn new(
+        code: String,
+        max_wins: u32,
+        pose_tx: broadcast::Sender<String>,
+        game_tx: broadcast::Sender<String>,
+        match_over_flag: Arc<std::sync::atomic::AtomicBool>,
+    ) -> Self {
         Self {
             code,
             players: [PlayerSlot::new(), PlayerSlot::new()],
@@ -48,6 +57,7 @@ impl RoomState {
             wins: [0, 0],
             round_start_time: None,
             match_over: false,
+            match_over_flag,
             max_wins,
             hp: [800, 800],
             pose_tx,

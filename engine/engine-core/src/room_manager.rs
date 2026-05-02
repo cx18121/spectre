@@ -10,7 +10,8 @@ use crate::room::{RoomCmd, RoomState, room_actor};
 pub struct RoomHandle {
     pub cmd_tx: mpsc::Sender<RoomCmd>,
     pub join_handle: JoinHandle<()>,      // ENG-13: abort on teardown
-    pub match_over: std::sync::atomic::AtomicBool,
+    /// Shared Arc with RoomState — set to true by game_loop when match ends (CR-03).
+    pub match_over: Arc<std::sync::atomic::AtomicBool>,
     pub last_player_disconnected_at: std::sync::Mutex<Option<Instant>>,
     pub pose_tx: broadcast::Sender<String>,
     pub game_tx: broadcast::Sender<String>,
@@ -61,18 +62,21 @@ impl RoomManager {
         let (cmd_tx, cmd_rx) = mpsc::channel::<RoomCmd>(128);
         let (pose_tx, _) = broadcast::channel::<String>(64);   // ENG-08 fast path
         let (game_tx, _) = broadcast::channel::<String>(128);  // ENG-08 slow path
+        // Shared flag between RoomState and RoomHandle — set by game_loop on match end (CR-03)
+        let match_over_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let state = RoomState::new(
             code.clone(),
             2, // default max_wins
             pose_tx.clone(),
             game_tx.clone(),
+            Arc::clone(&match_over_flag),
         );
         // Spawn actor — DO NOT hold DashMap guard across this spawn (Pitfall 4)
         let join_handle = tokio::spawn(room_actor(cmd_rx, state));
         let handle = RoomHandle {
             cmd_tx,
             join_handle,
-            match_over: std::sync::atomic::AtomicBool::new(false),
+            match_over: match_over_flag,
             last_player_disconnected_at: std::sync::Mutex::new(None),
             pose_tx,
             game_tx,
