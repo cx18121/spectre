@@ -219,8 +219,12 @@ fn handle_cmd(state: &mut RoomState, cmd: RoomCmd) {
             }) {
                 let _ = state.game_tx.send(json);
             }
-            // If both players are now connected, send calibration_start to both (ENG-11)
-            // Mobile clients wait for this message before transitioning out of lobby phase.
+            // Two-player mode: both players connected — send calibration_start to both (ENG-11).
+            // Solo mode: only player 0 connected (player 1 is a bot) — send calibration_start to
+            // slot 0 only. Mobile client stays in lobby until this message is received, so without
+            // this solo path the client never transitions to calibration and CalibrationDone is
+            // never sent, blocking the entire solo flow (CR-01).
+            let solo_mode = !state.players[1].connected;
             if state.players[0].connected && state.players[1].connected {
                 use crate::protocol::MsgCalibrationStart;
                 if let Ok(json) = serde_json::to_string(&MsgCalibrationStart {
@@ -228,7 +232,15 @@ fn handle_cmd(state: &mut RoomState, cmd: RoomCmd) {
                 }) {
                     send_to_slot(state, 0, &json);
                     send_to_slot(state, 1, &json);
-                    tracing::info!("room {} calibration started", state.code);
+                    tracing::info!("room {} calibration started (two-player)", state.code);
+                }
+            } else if solo_mode && slot == 0 && state.round_start_time.is_none() {
+                use crate::protocol::MsgCalibrationStart;
+                if let Ok(json) = serde_json::to_string(&MsgCalibrationStart {
+                    msg_type: "calibration_start".to_string(),
+                }) {
+                    send_to_slot(state, 0, &json);
+                    tracing::info!("room {} calibration started (solo/bot mode)", state.code);
                 }
             }
             let _ = reply.send(Some(result));
