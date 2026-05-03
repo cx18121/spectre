@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConnectionScreen } from './components/ConnectionScreen';
 import { GameScreen } from './components/GameScreen';
-import { useGameSocket, normalizeHttpUrl } from './hooks/useGameSocket';
+import { useGameSocket } from './hooks/useGameSocket';
 import './app.css';
 
 const SERVER_URL_STORAGE_KEY = 'shadowfight.serverUrl';
@@ -30,9 +30,7 @@ function App() {
   const [serverUrl, setServerUrl] = useState(readInitialServerUrl);
   const [roomCode, setRoomCode] = useState(readInitialRoomCode);
   const [playerSlot, setPlayerSlot] = useState<1 | 2>(readInitialSlot);
-  const [isSolo, setIsSolo] = useState(false);
-  const [soloLoading, setSoloLoading] = useState(false);
-  const [soloError, setSoloError] = useState<string | null>(null);
+  const isSolo = new URLSearchParams(window.location.search).get('solo') === '1';
 
   const socket = useGameSocket();
   const persistedRef = useRef(false);
@@ -49,41 +47,14 @@ function App() {
   }, [socket.status, serverUrl]);
 
   const handleConnect = (server: string, room: string, slot: 1 | 2) => {
-    setSoloError(null);
     setServerUrl(server);
     setRoomCode(room);
     setPlayerSlot(slot);
-    setIsSolo(false);
     socket.connect(server, room, slot);
   };
 
-  const handleSoloStart = useCallback(async (server: string, difficulty: string) => {
-    setServerUrl(server);
-    setSoloLoading(true);
-    setSoloError(null);
-    try {
-      const base = normalizeHttpUrl(server);
-      const res = await fetch(`${base}/rooms?mode=solo&difficulty=${encodeURIComponent(difficulty)}`, {
-        method: 'POST',
-      });
-      if (!res.ok) throw new Error(`Failed to create solo room (${res.status})`);
-      const { code } = await res.json() as { code: string };
-      window.localStorage.setItem(SERVER_URL_STORAGE_KEY, server);
-      setRoomCode(code);
-      setPlayerSlot(1);
-      setIsSolo(true);
-      socket.connect(server, code, 1);
-    } catch (err) {
-      setSoloError(err instanceof Error ? err.message : 'Could not start solo mode.');
-    } finally {
-      setSoloLoading(false);
-    }
-  }, [socket]);
-
   const handleDisconnect = useCallback(() => {
     socket.disconnect();
-    setIsSolo(false);
-    setSoloError(null);
   }, [socket]);
 
   const showGame =
@@ -116,10 +87,8 @@ function App() {
           initialRoomCode={roomCode}
           initialSlot={playerSlot}
           status={socket.status}
-          errorMessage={socket.errorMessage ?? soloError}
-          soloLoading={soloLoading}
+          errorMessage={socket.errorMessage}
           onConnect={handleConnect}
-          onSoloStart={handleSoloStart}
         />
       )}
     </div>
