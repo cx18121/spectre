@@ -88,4 +88,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-02 — Phase 02 (plugin-trait-boxing) complete: BoxingPlugin wired into engine-core, solo calibration_start fix (BOX-10/CR-01) closed, 91 tests passing*
+*Last updated: 2026-05-02 — Phase 03 (second-game-sdk) complete: DancePlugin crate added (9 unit tests, GAME2-01/02 confirmed), plugin registry + POST /rooms + GET / lobby wired into engine-core, SDK docs published (GAME-SDK.md 800 lines, full Rustdoc), 100 tests passing across workspace*
