@@ -27,3 +27,7 @@ tokio-stream = "0.1"
 plugin-trait = { path = "../plugin-trait" }
 boxing-plugin = { path = "../boxing-plugin" }
 dance-plugin = { path = "../dance-plugin" }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

@@ -116,3 +116,71 @@ pub fn tick_bot(
         },
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use plugin_trait::GameEvent;
+
+    #[test]
+    fn tick_bot_fires_when_timer_elapsed() {
+        let mut next_hit_at = 0.0_f64;
+        // elapsed > 0.0 so timer has already expired on first call
+        let events = tick_bot(Difficulty::Normal, &mut next_hit_at, 1.0);
+        assert_eq!(events.len(), 2, "should emit Hit + SendToPlayer");
+        assert!(matches!(events[0], GameEvent::Hit { attacker: 2, defender: 1, .. }));
+        assert!(matches!(events[1], GameEvent::SendToPlayer { slot: 1, .. }));
+    }
+
+    #[test]
+    fn tick_bot_no_fire_before_timer() {
+        let mut next_hit_at = 999.0_f64; // far in the future
+        let events = tick_bot(Difficulty::Normal, &mut next_hit_at, 0.0);
+        assert!(events.is_empty(), "should not fire before timer expires");
+    }
+
+    #[test]
+    fn tick_bot_advances_timer_after_firing() {
+        let mut next_hit_at = 0.0_f64;
+        tick_bot(Difficulty::Normal, &mut next_hit_at, 5.0);
+        // After firing at elapsed=5.0, next_hit_at must be > 5.0
+        assert!(next_hit_at > 5.0, "timer must advance after firing, got {}", next_hit_at);
+    }
+
+    #[test]
+    fn tick_bot_easy_damage_in_range() {
+        let (lo, hi) = (15_f32, 35_f32);
+        for _ in 0..50 {
+            let mut next_hit_at = 0.0_f64;
+            let events = tick_bot(Difficulty::Easy, &mut next_hit_at, 1.0);
+            if let GameEvent::Hit { damage, .. } = events[0] {
+                assert!(damage >= lo && damage <= hi, "Easy damage {} out of [{},{}]", damage, lo, hi);
+            }
+        }
+    }
+
+    #[test]
+    fn tick_bot_hard_damage_in_range() {
+        let (lo, hi) = (50_f32, 80_f32);
+        for _ in 0..50 {
+            let mut next_hit_at = 0.0_f64;
+            let events = tick_bot(Difficulty::Hard, &mut next_hit_at, 1.0);
+            if let GameEvent::Hit { damage, .. } = events[0] {
+                assert!(damage >= lo && damage <= hi, "Hard damage {} out of [{},{}]", damage, lo, hi);
+            }
+        }
+    }
+
+    #[test]
+    fn tick_bot_attacker_is_always_slot2() {
+        for _ in 0..20 {
+            let mut next_hit_at = 0.0_f64;
+            let events = tick_bot(Difficulty::Normal, &mut next_hit_at, 1.0);
+            if let GameEvent::Hit { attacker, defender, .. } = events[0] {
+                assert_eq!(attacker, 2);
+                assert_eq!(defender, 1);
+            }
+        }
+    }
+}
+

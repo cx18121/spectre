@@ -27,6 +27,17 @@ pub struct AppState {
     pub plugins: HashMap<String, Arc<dyn GamePlugin + Send + Sync>>,
 }
 
+fn build_app(state: Arc<AppState>) -> Router {
+    Router::new()
+        .route("/", get(lobby_html))
+        .route("/rooms", post(create_room))
+        .route("/ws/player/{room_code}", get(ws_player))
+        .route("/ws/spectator/{room_code}", get(ws_spectator))
+        .nest_service("/mobile", ServeDir::new("mobile/dist"))
+        .nest_service("/overlay", ServeDir::new("overlay/dist"))
+        .with_state(state)
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
@@ -47,14 +58,7 @@ async fn main() {
     });
     // Spawn room expiry background task (D-08)
     tokio::spawn(room_manager::expiry_task(state.rooms.rooms.clone()));
-    let app = Router::new()
-        .route("/", get(lobby_html))
-        .route("/rooms", post(create_room))
-        .route("/ws/player/{room_code}", get(ws_player))
-        .route("/ws/spectator/{room_code}", get(ws_spectator))
-        .nest_service("/mobile", ServeDir::new("mobile/dist"))
-        .nest_service("/overlay", ServeDir::new("overlay/dist"))
-        .with_state(state);
+    let app = build_app(state);
     let port = std::env::var("PORT").unwrap_or_else(|_| "8000".to_string());
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
@@ -437,5 +441,119 @@ async fn create_room(
             axum::http::StatusCode::BAD_REQUEST,
             Json(serde_json::json!({ "error": format!("unknown game: {}", game) })),
         ).into_response(),
+    }
+}
+
+#[cfg(test)]
+mod http_tests {
+    use super::*;
+    use axum::http::{Request, StatusCode};
+    use axum::body::Body;
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    fn test_state() -> Arc<AppState> {
+        let mut plugins: HashMap<String, Arc<dyn GamePlugin + Send + Sync>> = HashMap::new();
+        plugins.insert("boxing".to_string(), Arc::new(BoxingPlugin::new(BoxingConfig {
+            hp: 100, round_secs: 10.0, max_wins: 1, bot_difficulty: Difficulty::Normal,
+        })));
+        plugins.insert("dance".to_string(), Arc::new(DancePlugin::new(DanceConfig { max_wins: 1 })));
+        Arc::new(AppState {
+            rooms: Arc::new(room_manager::RoomManager::new()),
+            plugins,
+        })
+    }
+
+    #[tokio::test]
+    async fn post_rooms_boxing_returns_201() {
+        let app = build_app(test_state());
+        let resp = app
+            .oneshot(Request::builder().method("POST").uri("/rooms?game=boxing").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    #[tokio::test]
+    async fn post_rooms_dance_returns_201() {
+        let app = build_app(test_state());
+        let resp = app
+            .oneshot(Request::builder().method("POST").uri("/rooms?game=dance").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    #[tokio::test]
+    async fn post_rooms_unknown_game_returns_400() {
+        let app = build_app(test_state());
+        let resp = app
+            .oneshot(Request::builder().method("POST").uri("/rooms?game=unknown").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = resp.into_body().collect().await.unwrap().to_bytes();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["error"], "unknown game: unknown");
+    }
+
+    #[tokio::test]
+    async fn post_rooms_default_game_is_boxing() {
+        // No ?game= param — should default to boxing (not 400)
+        let app = build_app(test_state());
+        let resp = app
+            .oneshot(Request::builder().method("POST").uri("/rooms").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    #[tokio::test]
+    async fn post_rooms_returns_6char_alphanumeric_code() {
+        let app = build_app(test_state());
+        let resp = app
+            .oneshot(Request::builder().method("POST").uri("/rooms?game=boxing").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+        let body = resp.into_body().collect().await.unwrap().to_bytes();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let code = v["room_code"].as_str().unwrap();
+        assert_eq!(code.len(), 6, "room code must be 6 chars, got: {}", code);
+        assert!(code.chars().all(|c| c.is_ascii_alphanumeric()), "room code must be alphanumeric, got: {}", code);
+    }
+
+    #[tokio::test]
+    async fn post_rooms_never_returns_empty_code() {
+        // Regression test for the String::new() bug — first call must not return ""
+        let state = test_state();
+        for _ in 0..5 {
+            let app = build_app(Arc::clone(&state));
+            let resp = app
+                .oneshot(Request::builder().method("POST").uri("/rooms?game=boxing").body(Body::empty()).unwrap())
+                .await.unwrap();
+            let body = resp.into_body().collect().await.unwrap().to_bytes();
+            let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            let code = v["room_code"].as_str().unwrap();
+            assert!(!code.is_empty(), "room code must never be empty string");
+        }
+    }
+
+    #[tokio::test]
+    async fn get_lobby_returns_200_html() {
+        let app = build_app(test_state());
+        let resp = app
+            .oneshot(Request::builder().method("GET").uri("/").body(Body::empty()).unwrap())
+            .await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let ct = resp.headers().get("content-type").unwrap().to_str().unwrap();
+        assert!(ct.contains("text/html"), "expected text/html, got: {}", ct);
+    }
+
+    #[tokio::test]
+    async fn get_lobby_contains_boxing_and_dance_buttons() {
+        let app = build_app(test_state());
+        let resp = app
+            .oneshot(Request::builder().method("GET").uri("/").body(Body::empty()).unwrap())
+            .await.unwrap();
+        let body = resp.into_body().collect().await.unwrap().to_bytes();
+        let html = std::str::from_utf8(&body).unwrap();
+        assert!(html.contains("createRoom('boxing')"), "lobby missing boxing button");
+        assert!(html.contains("createRoom('dance')"), "lobby missing dance button");
     }
 }

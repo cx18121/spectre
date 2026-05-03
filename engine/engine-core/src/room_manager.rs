@@ -112,6 +112,81 @@ impl RoomManager {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use boxing_plugin::{BoxingPlugin, BoxingConfig, Difficulty};
+
+    fn boxing_plugin() -> Arc<dyn GamePlugin + Send + Sync> {
+        Arc::new(BoxingPlugin::new(BoxingConfig {
+            hp: 100, round_secs: 10.0, max_wins: 1, bot_difficulty: Difficulty::Normal,
+        }))
+    }
+
+    #[tokio::test]
+    async fn create_room_uses_provided_code() {
+        let mgr = RoomManager::new();
+        let code = mgr.create_room("TESTAB".to_string(), boxing_plugin());
+        assert_eq!(code, "TESTAB");
+        assert!(mgr.rooms.contains_key("TESTAB"), "room must be stored under provided code");
+    }
+
+    #[tokio::test]
+    async fn create_room_collision_generates_new_code() {
+        let mgr = RoomManager::new();
+        // Occupy "AAAABB" first
+        let first = mgr.create_room("AAAABB".to_string(), boxing_plugin());
+        assert_eq!(first, "AAAABB");
+        // Request the same code — should get a different 6-char random code
+        let second = mgr.create_room("AAAABB".to_string(), boxing_plugin());
+        assert_ne!(second, "AAAABB", "collision must produce a different code");
+        assert_eq!(second.len(), 6);
+        assert!(second.chars().all(|c| c.is_ascii_alphanumeric()));
+    }
+
+    #[tokio::test]
+    async fn create_room_stores_lookup_entry() {
+        let mgr = RoomManager::new();
+        let code = mgr.create_room("LOOKUP".to_string(), boxing_plugin());
+        assert!(mgr.get_cmd_tx(&code).is_some(), "get_cmd_tx must find newly created room");
+    }
+
+    #[tokio::test]
+    async fn room_not_expired_when_match_not_over() {
+        let mgr = RoomManager::new();
+        let code = mgr.create_room("EXPIRY".to_string(), boxing_plugin());
+        let handle = mgr.rooms.get(&code).unwrap();
+        assert!(!handle.is_expired(), "fresh room must not be expired");
+    }
+
+    #[tokio::test]
+    async fn room_not_expired_when_disconnect_is_recent() {
+        let mgr = RoomManager::new();
+        let code = mgr.create_room("RECENT".to_string(), boxing_plugin());
+        {
+            let handle = mgr.rooms.get(&code).unwrap();
+            // Simulate match over + player just disconnected
+            handle.match_over.store(true, std::sync::atomic::Ordering::Relaxed);
+            *handle.last_player_disconnected_at.lock().unwrap() = Some(std::time::Instant::now());
+        }
+        let handle = mgr.rooms.get(&code).unwrap();
+        assert!(!handle.is_expired(), "room with recent disconnect must not expire for 10 minutes");
+    }
+
+    #[tokio::test]
+    async fn subscribe_spectator_returns_none_for_missing_room() {
+        let mgr = RoomManager::new();
+        assert!(mgr.subscribe_spectator("NOPE00").is_none());
+    }
+
+    #[tokio::test]
+    async fn subscribe_spectator_returns_channels_for_existing_room() {
+        let mgr = RoomManager::new();
+        let code = mgr.create_room("SPECTR".to_string(), boxing_plugin());
+        assert!(mgr.subscribe_spectator(&code).is_some());
+    }
+}
+
 /// Background task: scan for expired rooms every 60 seconds and remove them (D-08, ENG-13).
 pub async fn expiry_task(rooms: Arc<DashMap<String, RoomHandle>>) {
     let mut interval = tokio::time::interval(Duration::from_secs(60));
