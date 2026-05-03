@@ -876,17 +876,19 @@ This phase adds a `POST /rooms` HTTP endpoint. The threat surface is minimal:
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **ws_player on-demand room creation**
    - What we know: `ws_player` currently creates rooms with the hardcoded boxing plugin if no room exists
    - What's unclear: Should Phase 3 remove this fallback path, or keep it as "default boxing"?
    - Recommendation: Planner should decide; if mobile app can always obtain a room code from the lobby, remove it (Option A). If there's a legacy direct-join flow, keep boxing as default (Option B). CONTEXT.md D-07 implies Option A is correct.
+   - **RESOLVED: Option A — rooms pre-created via `POST /rooms` only. `ws_player` no longer creates rooms on-demand; unknown room code returns a WebSocket close error. Implemented in 03-02-PLAN.md.**
 
 2. **`MsgGameState.hp` field during dance rounds**
    - What we know: `game_loop.rs` broadcasts `MsgGameState` with `hp: (state.hp[0], state.hp[1])` on every tick. For dance rooms, HP is meaningless (always 800/800 since no hit events are emitted).
    - What's unclear: Should the overlay (which reads hp from game_state) show 800/800 during dance, or should the field be contextually ignored?
    - Recommendation: 800/800 is harmless; overlay decides what to display. No engine change needed. The dance plugin simply never emits `GameEvent::Hit`, so HP stays at the initial value.
+   - **RESOLVED: No action required — dance plugin never emits `GameEvent::Hit`; HP stays at initial value; overlay is responsible for contextual display. No engine change needed.**
 
 ---
 
