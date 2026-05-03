@@ -237,8 +237,13 @@ fn dispatch_events(state: &mut RoomState, events: Vec<GameEvent>) {
                     let _ = state.game_tx.send(json);
                 }
             }
-            GameEvent::CommentaryHint { .. } => {
-                // No-op in Phase 2. v2 commentary engine will consume this variant.
+            GameEvent::CommentaryHint { kind, payload } => {
+                if let Some(tx) = &state.commentary_tx {
+                    let hint = crate::commentator::CommentaryHint { kind, payload };
+                    if tx.try_send(hint).is_err() {
+                        tracing::debug!("room {}: commentary channel full, dropping hint", state.code);
+                    }
+                }
             }
         }
     }

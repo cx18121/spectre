@@ -16,6 +16,7 @@ use boxing_plugin::Difficulty;
 use dance_plugin::{DancePlugin, DanceConfig};
 
 mod protocol;
+mod commentator;
 mod room;
 mod room_manager;
 mod input_delay;

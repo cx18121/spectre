@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::{broadcast, mpsc, oneshot};
 use crate::protocol::{MsgPoseFrame, MsgLobbyUpdate, MsgGameState};
+use crate::commentator;
 use plugin_trait::GamePlugin;
 
 pub struct PlayerSlot {
@@ -55,6 +56,8 @@ pub struct RoomState {
     pub tick: u64,
     /// Hits accumulated this tick; broadcast in MsgGameState.recent_hits, then cleared.
     pub recent_hits: Vec<crate::protocol::HitEvent>,
+    /// Commentary hint channel — send CommentaryHint events here; None when commentary disabled.
+    pub commentary_tx: Option<mpsc::Sender<commentator::CommentaryHint>>,
 }
 
 impl RoomState {
@@ -86,6 +89,7 @@ impl RoomState {
             plugin_state,
             tick: 0,
             recent_hits: Vec::new(),
+            commentary_tx: None, // Set by room_manager after spawning the commentary task
         }
     }
 }

@@ -1,0 +1,126 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="The complete interface for a PoseEngine game."><title>GamePlugin in plugin_trait - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="plugin_trait" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">GamePlugin</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../plugin_trait/index.html">plugin_<wbr>trait</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Game<wbr>Plugin</a></h2><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.init_state" title="init_state">init_state</a></li><li><a href="#tymethod.on_tick" title="on_tick">on_tick</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.max_wins" title="max_wins">max_wins</a></li><li><a href="#method.on_calibration_complete" title="on_calibration_complete">on_calibration_complete</a></li><li><a href="#method.on_player_join" title="on_player_join">on_player_join</a></li><li><a href="#method.on_player_leave" title="on_player_leave">on_player_leave</a></li><li><a href="#method.on_round_reset" title="on_round_reset">on_round_reset</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate plugin_<wbr>trait</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">plugin_trait</a></div><h1>Trait <span class="trait">Game<wbr>Plugin</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/plugin_trait/lib.rs.html#208-324">Source</a> </span></div><pre class="rust item-decl"><code>pub trait GamePlugin: <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> {
+    // Required methods
+    fn <a href="#tymethod.init_state" class="fn">init_state</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.95.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.on_tick" class="fn">on_tick</a>(
+        &amp;self,
+        ctx: &amp;<a class="struct" href="struct.TickContext.html" title="struct plugin_trait::TickContext">TickContext</a>&lt;'_&gt;,
+        state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>,
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.95.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="enum.GameEvent.html" title="enum plugin_trait::GameEvent">GameEvent</a>&gt;;
+
+    // Provided methods
+    fn <a href="#method.max_wins" class="fn">max_wins</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.on_player_join" class="fn">on_player_join</a>(&amp;self, _slot: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u8.html">u8</a>, _state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.on_player_leave" class="fn">on_player_leave</a>(&amp;self, _slot: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u8.html">u8</a>, _state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.on_calibration_complete" class="fn">on_calibration_complete</a>(
+        &amp;self,
+        _slot: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u8.html">u8</a>,
+        _ref_vel: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.f64.html">f64</a>,
+        _state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>,
+    ) { ... }
+<span class="item-spacer"></span>    fn <a href="#method.on_round_reset" class="fn">on_round_reset</a>(&amp;self, _state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>) { ... }
+}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>The complete interface for a PoseEngine game.</p>
+<p>Object safety rules satisfied (PLUG-05):</p>
+<ul>
+<li>No <code>async fn</code> (would break dyn-compatibility via impl Future return)</li>
+<li>No <code>-&gt; Self</code> return types</li>
+<li>No generic type parameters on methods</li>
+<li><code>&amp;self</code> receiver on all methods</li>
+<li><code>Send + Sync</code> supertrait (auto-traits, do not break object safety)</li>
+</ul>
+<p>Plugin state is stored as <code>Box&lt;dyn Any + Send&gt;</code> per room (PLUG-04).
+Each plugin downcasts in its own methods; the engine never inspects state.
+BoxingState must be ’static + Send (no references, no non-Send types).</p>
+</div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.init_state" class="method"><a class="src rightside" href="../src/plugin_trait/lib.rs.html#222">Source</a><h4 class="code-header">fn <a href="#tymethod.init_state" class="fn">init_state</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.95.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;</h4></section></summary><div class="docblock"><p>Creates the initial per-room plugin state.</p>
+<p><strong>Called when:</strong> Once at room creation time, before any players join or calibrate.</p>
+<p><strong>Contract:</strong></p>
+<ul>
+<li>Return a <code>Box&lt;dyn Any + Send&gt;</code> containing your plugin’s mutable state struct.</li>
+<li>The returned type must be <code>'static + Send</code> — store only owned data, no references.</li>
+<li>The engine will pass this box back to every plugin method as <code>state: &amp;mut dyn Any</code>.</li>
+</ul>
+<p><strong>Return:</strong> <code>Box</code> containing your state struct (e.g., <code>Box::new(MyState { ... })</code>).</p>
+<p><strong>Do NOT:</strong> store <code>Arc</code>, <code>Rc</code>, <code>&amp;str</code> with lifetimes, or any non-<code>'static</code> types.
+Downcast in your other methods: <code>state.downcast_mut::&lt;MyState&gt;().expect("type mismatch")</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.on_tick" class="method"><a class="src rightside" href="../src/plugin_trait/lib.rs.html#244">Source</a><h4 class="code-header">fn <a href="#tymethod.on_tick" class="fn">on_tick</a>(&amp;self, ctx: &amp;<a class="struct" href="struct.TickContext.html" title="struct plugin_trait::TickContext">TickContext</a>&lt;'_&gt;, state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.95.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="enum.GameEvent.html" title="enum plugin_trait::GameEvent">GameEvent</a>&gt;</h4></section></summary><div class="docblock"><p>The main game loop callback, called 60 times per second during the live round.</p>
+<p><strong>Called when:</strong> Every tick after warmup ends and both players have calibrated.
+The warmup period (3.8 seconds) delivers empty frame slices — <code>on_tick</code> is NOT
+called during warmup; the engine gates it.</p>
+<p><strong>Contract:</strong></p>
+<ul>
+<li>This method must be synchronous and non-blocking (no <code>await</code>, no <code>thread::sleep</code>).</li>
+<li>Do not call network or I/O. All side-effects must be expressed as returned events.</li>
+<li>The engine dispatches returned events after <code>on_tick</code> returns — not during.</li>
+<li><code>ctx.frames[0]</code> = released pose frames for slot 1; <code>ctx.frames[1]</code> = slot 2.
+Frames are normalized to hip-centred Y-up coordinates before delivery (PLUG-06).
+Frames have already passed the RTT fairness input-delay buffer.</li>
+</ul>
+<p><strong>Return:</strong> <code>Vec&lt;GameEvent&gt;</code> — the complete list of side-effects for this tick.
+Return an empty vec if nothing happened.</p>
+<p><strong>Do NOT:</strong> mutate engine state directly, store references from <code>ctx</code> in plugin
+state (the frames borrow ends after this call), or panic on missing frames
+(frames may be empty if a player is lagging).</p>
+</div></details></div><h2 id="provided-methods" class="section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.max_wins" class="method"><a class="src rightside" href="../src/plugin_trait/lib.rs.html#257">Source</a><h4 class="code-header">fn <a href="#method.max_wins" class="fn">max_wins</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a></h4></section></summary><div class="docblock"><p>Returns the number of round wins required to win the overall match.</p>
+<p><strong>Called when:</strong> Once at room creation, to configure the win counter.</p>
+<p><strong>Contract:</strong></p>
+<ul>
+<li>Must return a positive integer ≥ 1.</li>
+<li>The default implementation returns 2. Override to use your config struct value.</li>
+</ul>
+<p><strong>Return:</strong> Win count (e.g., 3 for best-of-5).</p>
+<p><strong>Do NOT:</strong> return 0 (would cause the first round to end the match immediately).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.on_player_join" class="method"><a class="src rightside" href="../src/plugin_trait/lib.rs.html#271">Source</a><h4 class="code-header">fn <a href="#method.on_player_join" class="fn">on_player_join</a>(&amp;self, _slot: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u8.html">u8</a>, _state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>)</h4></section></summary><div class="docblock"><p>Called when a player’s WebSocket connects to the room.</p>
+<p><strong>Called when:</strong> Each time a player (slot 1 or 2) connects via <code>/ws/player/{code}</code>.
+May be called multiple times if a player disconnects and reconnects.</p>
+<p><strong>Contract:</strong></p>
+<ul>
+<li><code>slot</code> is 0-indexed (0 = player 1, 1 = player 2).</li>
+<li>Default implementation is a no-op. Override only if you need join-triggered logic.</li>
+</ul>
+<p><strong>Return:</strong> Nothing (unit).</p>
+<p><strong>Do NOT:</strong> start game logic here — wait for <code>on_calibration_complete</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.on_player_leave" class="method"><a class="src rightside" href="../src/plugin_trait/lib.rs.html#286">Source</a><h4 class="code-header">fn <a href="#method.on_player_leave" class="fn">on_player_leave</a>(&amp;self, _slot: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u8.html">u8</a>, _state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>)</h4></section></summary><div class="docblock"><p>Called when a player’s WebSocket disconnects from the room.</p>
+<p><strong>Called when:</strong> Each time a player’s connection closes (graceful or network drop).</p>
+<p><strong>Contract:</strong></p>
+<ul>
+<li><code>slot</code> is 0-indexed (0 = player 1, 1 = player 2).</li>
+<li>Default implementation is a no-op.</li>
+<li>Do not emit <code>RoundOver</code> here — use <code>ctx.room.solo_mode</code> in <code>on_tick</code> for
+walk-over logic if needed.</li>
+</ul>
+<p><strong>Return:</strong> Nothing (unit).</p>
+<p><strong>Do NOT:</strong> clear calibration state here — calibration persists for the room lifetime (FIX-01).</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.on_calibration_complete" class="method"><a class="src rightside" href="../src/plugin_trait/lib.rs.html#304">Source</a><h4 class="code-header">fn <a href="#method.on_calibration_complete" class="fn">on_calibration_complete</a>(
+    &amp;self,
+    _slot: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u8.html">u8</a>,
+    _ref_vel: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.f64.html">f64</a>,
+    _state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>,
+)</h4></section></summary><div class="docblock"><p>Called after the engine records a player’s calibration velocity.</p>
+<p><strong>Called when:</strong> After a player sends <code>CalibrationDone</code> from the mobile client,
+and the engine has stored <code>reference_velocity</code> on the player slot.
+Called once per player per room session (calibration persists through rematches, FIX-01).</p>
+<p><strong>Contract:</strong></p>
+<ul>
+<li><code>slot</code> is 0-indexed. <code>ref_vel</code> is in metres per second (typical range 0.5–15.0).</li>
+<li>Default implementation is a no-op.</li>
+<li>Boxing clamps <code>ref_vel</code> to [0.5, 15.0] before storing (D-08).</li>
+<li>Dance ignores this entirely — the signal still serves as “player is ready to start”.</li>
+</ul>
+<p><strong>Return:</strong> Nothing (unit).</p>
+<p><strong>Do NOT:</strong> clear existing calibration data in <code>on_round_reset</code> — it must survive
+rematches. Only <code>init_state</code> starts with zero calibration data.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.on_round_reset" class="method"><a class="src rightside" href="../src/plugin_trait/lib.rs.html#323">Source</a><h4 class="code-header">fn <a href="#method.on_round_reset" class="fn">on_round_reset</a>(&amp;self, _state: &amp;mut dyn <a class="trait" href="https://doc.rust-lang.org/1.95.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a>)</h4></section></summary><div class="docblock"><p>Called after a round ends and before the next round starts.</p>
+<p><strong>Called when:</strong> After the engine broadcasts <code>MsgRoundEnd</code> and increments the win
+counter. Triggered by a <code>RoundOver</code> event returned from <code>on_tick</code>.</p>
+<p><strong>Contract:</strong></p>
+<ul>
+<li>Clear ONLY round-scoped state (HP, cooldowns, combo counters, score accumulators,
+beat counters, round flags).</li>
+<li>Do NOT clear calibration data (<code>reference_velocity</code>/<code>ref_vel</code>) — it persists
+for the full room session (FIX-01 regression: clearing it was the original bug
+in <code>server/rooms.py:64</code>).</li>
+</ul>
+<p><strong>Return:</strong> Nothing (unit).</p>
+<p><strong>Do NOT:</strong> emit events here — the return type is <code>()</code>. If you need to broadcast
+a rematch message, emit <code>GameEvent::Broadcast</code> in <code>on_tick</code> on the first tick of
+the new round.</p>
+</div></details></div><h2 id="implementors" class="section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../trait.impl/plugin_trait/trait.GamePlugin.js" async></script></section></div></main></body></html>

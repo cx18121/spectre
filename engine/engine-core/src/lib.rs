@@ -1,2 +1,7 @@
 pub mod protocol;
-// Other modules will be added here as they are implemented
+pub mod commentator;
+pub mod room;
+pub mod room_manager;
+pub mod game_loop;
+pub mod broadcast;
+pub mod input_delay;

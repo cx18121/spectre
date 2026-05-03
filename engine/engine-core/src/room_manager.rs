@@ -62,7 +62,7 @@ impl RoomManager {
                     let match_over_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
                     // Shared disconnect timestamp between RoomState and RoomHandle — set when last player disconnects (CR-01)
                     let last_disconnect = Arc::new(std::sync::Mutex::new(None::<Instant>));
-                    let state = RoomState::new(
+                    let mut state = RoomState::new(
                         code.clone(),
                         plugin.max_wins(), // CR-02: use value from plugin config
                         pose_tx.clone(),
@@ -71,6 +71,8 @@ impl RoomManager {
                         Arc::clone(&last_disconnect),
                         Arc::clone(&plugin),
                     );
+                    // Spawn commentary task now (inside tokio runtime context) and wire into state.
+                    state.commentary_tx = Some(crate::commentator::spawn(game_tx.clone(), code.clone()));
                     // Spawn actor — DO NOT hold DashMap guard across this spawn (Pitfall 4).
                     // We drop the entry guard after insert, so the guard is held only during insert.
                     let join_handle = tokio::spawn(room_actor(cmd_rx, state));

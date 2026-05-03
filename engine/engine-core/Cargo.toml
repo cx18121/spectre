@@ -24,6 +24,8 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 rand = "0.8.6"
 futures-util = "0.3"
 tokio-stream = "0.1"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+base64 = "0.22"
 plugin-trait = { path = "../plugin-trait" }
 boxing-plugin = { path = "../boxing-plugin" }
 dance-plugin = { path = "../dance-plugin" }

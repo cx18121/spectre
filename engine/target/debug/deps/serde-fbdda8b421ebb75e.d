@@ -1,0 +1,12 @@
+/Users/charliexue/School/Comps/claude-hackathon26/engine/target/debug/deps/serde-fbdda8b421ebb75e.d: /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/charliexue/School/Comps/claude-hackathon26/engine/target/debug/build/serde-258665a108843663/out/private.rs
+
+/Users/charliexue/School/Comps/claude-hackathon26/engine/target/debug/deps/libserde-fbdda8b421ebb75e.rmeta: /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/charliexue/School/Comps/claude-hackathon26/engine/target/debug/build/serde-258665a108843663/out/private.rs
+
+/Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/charliexue/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/charliexue/School/Comps/claude-hackathon26/engine/target/debug/build/serde-258665a108843663/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/charliexue/School/Comps/claude-hackathon26/engine/target/debug/build/serde-258665a108843663/out
