@@ -69,16 +69,16 @@ Declared values (multiples of 4 only):
 |-------|-------|----------------|
 | xs | 4px | Inline gaps, letter-spacing supplement |
 | sm | 8px | Button gap between the two game buttons |
-| md | 16px | Page horizontal padding; room code top margin |
-| lg | 24px | Page vertical padding (top + bottom) |
+| md | 16px | Page horizontal padding; room code top margin; button vertical padding |
+| lg | 24px | Page vertical padding (top + bottom); button horizontal padding |
 | xl | 32px | Heading bottom margin |
-| 2xl | 48px | `max-width` container vertical centering offset |
+| 2xl | 48px | `max-width` container vertical margin (`margin: 48px auto`) |
 | 3xl | 64px | Not used in lobby |
 
 Exceptions: none.
 
 Source: 8-point scale consistent with existing `app.css` spacing values (gap: 16px,
-padding: 24px, min-height: 48px, padding: 14px 16px throughout mobile CSS).
+padding: 24px, min-height: 48px throughout mobile CSS).
 
 ---
 
@@ -87,9 +87,11 @@ padding: 24px, min-height: 48px, padding: 14px 16px throughout mobile CSS).
 | Role | Size | Weight | Line Height | Source |
 |------|------|--------|-------------|--------|
 | Body | 16px (1rem) | 400 (regular) | 1.5 | Default; matches `0.95rem` body copy in app.css paragraphs |
-| Label | 13px (0.8rem) | 700 (bold) | 1.2 | Matches `.subtitle`, `.field span` in app.css (0.85rem, uppercase) |
+| Label | 13px (0.8rem) | 800 (extrabold) | 1.2 | Matches `.subtitle`, `.field span` in app.css (0.85rem, uppercase); consolidated to 800 per 2-weight rule |
 | Heading | 28px (1.75rem) | 800 (extrabold) | 1.2 | Scaled-down from `.title` clamp in app.css; fixed for lobby desktop context |
 | Room code display | 32px (2rem) | 800 (extrabold) | 1 | Matches RESEARCH.md Pattern 5: `font-size: 2rem; font-weight: bold; letter-spacing: 0.2em` |
+
+**Declared weights: 400 (regular) and 800 (extrabold) only — exactly 2 weights.**
 
 Font stack: `font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
 (Matches overlay `index.css:13` — identical stack, Inter omitted since no web font is loaded for the lobby.)
@@ -134,10 +136,10 @@ string. The executor must implement these interactive elements directly in the H
 | Game picker — Dance button | `<button onclick="createRoom('dance')">` | `.big-button` pattern from app.css:136 |
 | Room code display | `<div id="room-code">` | RESEARCH.md Pattern 5 inline; `font-size: 2rem; letter-spacing: 0.2em` |
 | Error display | Fallback text inside `#room-code` on non-ok response | `.error-banner` pattern from app.css:164 |
-| Page container | `<main>` with `max-width: 480px; margin: 40px auto` | RESEARCH.md Pattern 5 skeleton |
+| Page container | `<main>` with `max-width: 480px; margin: 48px auto` | Spacing token 2xl (48px) |
 
-Button sizing: `min-height: 52px; padding: 14px 24px` — matches `.big-button` min-height
-48–52px and `.ready-button` padding 16px 40px in app.css. Touch target minimum 44px
+Button sizing: `min-height: 52px; padding: 16px 24px` — vertical padding uses the `md`
+token (16px); horizontal padding uses the `lg` token (24px). Touch target minimum 44px
 (accessibility minimum) — both buttons exceed this at 52px.
 
 Button layout: two buttons side by side with `display: flex; gap: 8px` — matches
@@ -210,11 +212,11 @@ All CSS is inline in the `<style>` block — no external stylesheets, no CDN lin
   <title>PoseEngine Lobby</title>
   <style>
     :root { /* token declarations — see Token Alignment table */ }
-    body { /* bg-deep background, text-primary color, font stack, max-width container */ }
+    body { /* bg-deep background, text-primary color, font stack; max-width: 480px; margin: 48px auto; padding: 0 16px */ }
     h1 { /* 28px, weight 800, letter-spacing 0.12em, uppercase, text-primary */ }
-    p.subtitle { /* 13px, text-secondary, uppercase, letter-spacing 0.08em */ }
+    p.subtitle { /* 13px, weight 800, text-secondary, uppercase, letter-spacing 0.08em */ }
     .btn-row { /* flex, gap 8px */ }
-    button { /* big-button pattern: min-height 52px, accent bg on hover, text-primary */ }
+    button { /* big-button pattern: min-height 52px; padding: 16px 24px; accent bg on hover, text-primary */ }
     #room-code { /* 32px, weight 800, letter-spacing 0.2em, margin-top 16px */ }
     #room-code.error { /* #ff9b9b color, error-banner background/border */ }
   </style>
