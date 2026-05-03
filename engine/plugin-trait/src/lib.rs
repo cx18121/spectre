@@ -12,7 +12,16 @@ use serde_json::Value;
 
 /// A single MediaPipe pose landmark, normalized to hip-centred Y-up coordinates
 /// by the engine before delivery to the plugin (PLUG-06).
-/// Y-up: positive Y = above hip centre; negative Y = below hip centre.
+///
+/// **Coordinate system (Y-up, hip-centred):**
+/// - Origin (0, 0) is at the midpoint between the player's two hips.
+/// - Positive Y = above the hips; negative Y = below the hips.
+/// - Approximate ranges: nose y ≈ +0.8, shoulders y ≈ +0.35, ankles y ≈ -0.90.
+/// - `z` is near-zero for 2D MediaPipe estimation; safe to ignore.
+/// - `visibility` ∈ [0.0, 1.0]. Filter landmarks with `visibility < 0.5` as unreliable.
+///
+/// **Do NOT** assume raw MediaPipe Y-down coordinates — the engine applies
+/// `normalize_to_y_up` before any plugin sees the frame.
 #[derive(Clone, Debug)]
 pub struct PoseKeypoint {
     pub x: f64,
@@ -21,7 +30,15 @@ pub struct PoseKeypoint {
     pub visibility: f64,
 }
 
-/// A single pose frame delivered to the plugin via TickContext.
+/// A single pose frame delivered to the plugin via `TickContext.frames`.
+///
+/// Each frame holds 33 MediaPipe landmarks for one player at one instant,
+/// already normalized to hip-centred Y-up coordinates.
+///
+/// **Usage in `on_tick`:** Iterate `ctx.frames[slot_idx]` to access the
+/// per-player deque of released frames for this tick. Use `.back()` for the
+/// most recent frame, or iterate all frames for velocity/motion calculations.
+///
 /// Timestamp is in seconds (matches MsgPoseFrame.timestamp from protocol.rs).
 #[derive(Clone, Debug)]
 pub struct PoseFrame {
@@ -33,9 +50,11 @@ pub struct PoseFrame {
 // Body region classification (BOX-03: 9 regions)
 // ---------------------------------------------------------------------------
 
-/// Nine body regions for hit classification.
-/// Use `to_wire()` for JSON wire format (snake_case). Do NOT use `format!("{:?}", r).to_lowercase()`
-/// as Debug emits PascalCase which collapses to concatenated lowercase (CR-05).
+/// Nine body regions for hit classification in combat games (BOX-03).
+///
+/// Use `to_wire()` to get the snake_case JSON string for wire messages.
+/// Do NOT use `format!("{:?}", r).to_lowercase()` — Debug emits PascalCase
+/// that collapses incorrectly (e.g., `HeadFace` → `headface`, not `head_face`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BodyRegion {
     HeadFace,
@@ -71,9 +90,18 @@ impl BodyRegion {
 // Game events (D-03: five variants; replaces Phase 1 engine-core GameEvent)
 // ---------------------------------------------------------------------------
 
-/// All side-effects a plugin can produce in a single tick.
-/// Engine dispatches these after on_tick returns (D-02: events-only messaging).
-/// CommentaryHint is a no-op in Phase 2; v2 commentary engine will consume it.
+/// All side-effects a plugin can produce in a single `on_tick` call.
+///
+/// The engine dispatches events after `on_tick` returns (D-02: events-only messaging).
+///
+/// - `Hit`: triggers HP damage broadcast, overlay visual effect.
+/// - `RoundOver`: engine broadcasts `MsgRoundEnd`, increments win counter, calls `on_round_reset`.
+/// - `SendToPlayer`: delivers `payload` JSON to one player's outbound channel.
+/// - `Broadcast`: delivers `payload` JSON to the room's slow-path channel (all connected clients).
+/// - `CommentaryHint`: no-op in v1; consumed by v2 commentary engine (COMM-01).
+///
+/// **Important:** Emit `RoundOver` at most once per round. Use a `round_ended: bool`
+/// flag in your state to guard against re-emitting on subsequent ticks.
 #[derive(Debug)]
 pub enum GameEvent {
     /// A hit landed: attacker hit defender in body region with given damage.
@@ -99,7 +127,12 @@ pub enum GameEvent {
 // Tick context types (PLUG-02)
 // ---------------------------------------------------------------------------
 
-/// Per-tick timing information passed to the plugin.
+/// Per-tick timing information. Monotonically incrementing values.
+///
+/// - `tick`: integer counter incremented by 1 every 60Hz tick from match start.
+///   Use this (not `elapsed_secs`) for beat clocks and frame counting — it is exact.
+/// - `elapsed_secs`: float seconds since round start. Use for duration comparisons.
+/// - `remaining_secs`: float seconds until round time limit. ≤ 0.0 when time expires.
 pub struct TickInfo {
     /// Monotonically increasing tick counter (incremented each 60Hz tick).
     pub tick: u64,
@@ -109,7 +142,11 @@ pub struct TickInfo {
     pub remaining_secs: f64,
 }
 
-/// Read-only view of a player slot, passed to the plugin via RoomView.
+/// Read-only view of one player slot, passed to the plugin via `RoomView`.
+///
+/// - `connected`: true if the player's WebSocket is currently open.
+/// - `reference_velocity`: `None` until the player submits `CalibrationDone`;
+///   `Some(f64)` afterwards (persists through rematches — FIX-01).
 pub struct SlotView {
     /// True if the player's WebSocket is currently connected.
     pub connected: bool,
@@ -117,8 +154,15 @@ pub struct SlotView {
     pub reference_velocity: Option<f64>,
 }
 
-/// Read-only view of the room state, passed to the plugin via TickContext.
-/// Plugin uses this to detect solo/bot mode (D-04): slots[1].connected == false.
+/// Read-only view of room-level state, passed to the plugin via `TickContext`.
+///
+/// - `slots`: views for slot 1 (index 0) and slot 2 (index 1).
+/// - `solo_mode`: `true` if the match started in solo/bot mode (only one player
+///   calibrated before match start). Set once at match start — **do not re-derive**
+///   from `slots[1].connected`; a mid-match disconnect would incorrectly trigger
+///   solo logic (WR-01 anti-pattern).
+///
+/// Plugin uses this to detect solo/bot mode (D-04): `slots[1].connected == false`.
 pub struct RoomView {
     pub slots: [SlotView; 2],
     /// True if the match started in solo/bot mode (WR-01: set once at CalibrationDone, not re-derived per tick).
@@ -126,7 +170,18 @@ pub struct RoomView {
 }
 
 /// All inputs delivered to the plugin for one 60Hz tick.
-/// frames[0] = slot 1 released pose frames; frames[1] = slot 2 released pose frames.
+///
+/// - `frames[0]`: released pose frames for slot 1 this tick (may be empty if player is lagging).
+/// - `frames[1]`: released pose frames for slot 2 this tick.
+///   Frames are normalized to hip-centred Y-up by the engine before delivery (PLUG-06).
+///   Frames have passed the RTT fairness input-delay buffer — they are already-released frames only.
+/// - `tick_info`: timing for this tick (see `TickInfo`).
+/// - `room`: read-only room state (see `RoomView`).
+///
+/// **Lifetime:** The `'a` lifetime ties `frames` to the engine's per-tick deque reference.
+/// Do NOT store `ctx.frames` or references into it in plugin state.
+///
+/// `frames\[0\]` = slot 1 released pose frames; `frames\[1\]` = slot 2 released pose frames.
 /// Frames have already been normalized to hip-centred Y-up by the engine (PLUG-06).
 pub struct TickContext<'a> {
     pub frames: [&'a VecDeque<PoseFrame>; 2],
@@ -151,31 +206,119 @@ pub struct TickContext<'a> {
 /// Each plugin downcasts in its own methods; the engine never inspects state.
 /// BoxingState must be 'static + Send (no references, no non-Send types).
 pub trait GamePlugin: Send + Sync {
-    /// Create initial per-room plugin state. Called once per room creation.
-    /// The returned box must be `'static + Send` — store only owned data.
+    /// Creates the initial per-room plugin state.
+    ///
+    /// **Called when:** Once at room creation time, before any players join or calibrate.
+    ///
+    /// **Contract:**
+    /// - Return a `Box<dyn Any + Send>` containing your plugin's mutable state struct.
+    /// - The returned type must be `'static + Send` — store only owned data, no references.
+    /// - The engine will pass this box back to every plugin method as `state: &mut dyn Any`.
+    ///
+    /// **Return:** `Box` containing your state struct (e.g., `Box::new(MyState { ... })`).
+    ///
+    /// **Do NOT:** store `Arc`, `Rc`, `&str` with lifetimes, or any non-`'static` types.
+    /// Downcast in your other methods: `state.downcast_mut::<MyState>().expect("type mismatch")`.
     fn init_state(&self) -> Box<dyn Any + Send>;
 
-    /// Called every 60Hz tick during the live round phase (after warmup).
-    /// Returns a vec of side-effects; engine dispatches them after this returns.
-    /// This is a pure function: inputs in, events out. No network calls, no async.
+    /// The main game loop callback, called 60 times per second during the live round.
+    ///
+    /// **Called when:** Every tick after warmup ends and both players have calibrated.
+    /// The warmup period (3.8 seconds) delivers empty frame slices — `on_tick` is NOT
+    /// called during warmup; the engine gates it.
+    ///
+    /// **Contract:**
+    /// - This method must be synchronous and non-blocking (no `await`, no `thread::sleep`).
+    /// - Do not call network or I/O. All side-effects must be expressed as returned events.
+    /// - The engine dispatches returned events after `on_tick` returns — not during.
+    /// - `ctx.frames[0]` = released pose frames for slot 1; `ctx.frames[1]` = slot 2.
+    ///   Frames are normalized to hip-centred Y-up coordinates before delivery (PLUG-06).
+    ///   Frames have already passed the RTT fairness input-delay buffer.
+    ///
+    /// **Return:** `Vec<GameEvent>` — the complete list of side-effects for this tick.
+    /// Return an empty vec if nothing happened.
+    ///
+    /// **Do NOT:** mutate engine state directly, store references from `ctx` in plugin
+    /// state (the frames borrow ends after this call), or panic on missing frames
+    /// (frames may be empty if a player is lagging).
     fn on_tick(&self, ctx: &TickContext, state: &mut dyn Any) -> Vec<GameEvent>;
 
-    /// Returns the number of round wins required to win the match (CR-02).
-    /// Default: 2. Override in your plugin to use config-driven values.
+    /// Returns the number of round wins required to win the overall match.
+    ///
+    /// **Called when:** Once at room creation, to configure the win counter.
+    ///
+    /// **Contract:**
+    /// - Must return a positive integer ≥ 1.
+    /// - The default implementation returns 2. Override to use your config struct value.
+    ///
+    /// **Return:** Win count (e.g., 3 for best-of-5).
+    ///
+    /// **Do NOT:** return 0 (would cause the first round to end the match immediately).
     fn max_wins(&self) -> u32 { 2 }
 
     /// Called when a player's WebSocket connects to the room.
+    ///
+    /// **Called when:** Each time a player (slot 1 or 2) connects via `/ws/player/{code}`.
+    /// May be called multiple times if a player disconnects and reconnects.
+    ///
+    /// **Contract:**
+    /// - `slot` is 0-indexed (0 = player 1, 1 = player 2).
+    /// - Default implementation is a no-op. Override only if you need join-triggered logic.
+    ///
+    /// **Return:** Nothing (unit).
+    ///
+    /// **Do NOT:** start game logic here — wait for `on_calibration_complete`.
     fn on_player_join(&self, _slot: u8, _state: &mut dyn Any) {}
 
     /// Called when a player's WebSocket disconnects from the room.
+    ///
+    /// **Called when:** Each time a player's connection closes (graceful or network drop).
+    ///
+    /// **Contract:**
+    /// - `slot` is 0-indexed (0 = player 1, 1 = player 2).
+    /// - Default implementation is a no-op.
+    /// - Do not emit `RoundOver` here — use `ctx.room.solo_mode` in `on_tick` for
+    ///   walk-over logic if needed.
+    ///
+    /// **Return:** Nothing (unit).
+    ///
+    /// **Do NOT:** clear calibration state here — calibration persists for the room lifetime (FIX-01).
     fn on_player_leave(&self, _slot: u8, _state: &mut dyn Any) {}
 
-    /// Called after the engine stores reference_velocity on PlayerSlot.
-    /// Plugin stores a clamped copy in plugin state for use in hit detection.
+    /// Called after the engine records a player's calibration velocity.
+    ///
+    /// **Called when:** After a player sends `CalibrationDone` from the mobile client,
+    /// and the engine has stored `reference_velocity` on the player slot.
+    /// Called once per player per room session (calibration persists through rematches, FIX-01).
+    ///
+    /// **Contract:**
+    /// - `slot` is 0-indexed. `ref_vel` is in metres per second (typical range 0.5–15.0).
+    /// - Default implementation is a no-op.
+    /// - Boxing clamps `ref_vel` to [0.5, 15.0] before storing (D-08).
+    /// - Dance ignores this entirely — the signal still serves as "player is ready to start".
+    ///
+    /// **Return:** Nothing (unit).
+    ///
+    /// **Do NOT:** clear existing calibration data in `on_round_reset` — it must survive
+    /// rematches. Only `init_state` starts with zero calibration data.
     fn on_calibration_complete(&self, _slot: u8, _ref_vel: f64, _state: &mut dyn Any) {}
 
-    /// Called after RoundOver is broadcast and wins are incremented.
-    /// Plugin clears ONLY round-scoped state (HP, cooldowns, combos).
-    /// Must NOT clear reference_velocity — FIX-01.
+    /// Called after a round ends and before the next round starts.
+    ///
+    /// **Called when:** After the engine broadcasts `MsgRoundEnd` and increments the win
+    /// counter. Triggered by a `RoundOver` event returned from `on_tick`.
+    ///
+    /// **Contract:**
+    /// - Clear ONLY round-scoped state (HP, cooldowns, combo counters, score accumulators,
+    ///   beat counters, round flags).
+    /// - Do NOT clear calibration data (`reference_velocity`/`ref_vel`) — it persists
+    ///   for the full room session (FIX-01 regression: clearing it was the original bug
+    ///   in `server/rooms.py:64`).
+    ///
+    /// **Return:** Nothing (unit).
+    ///
+    /// **Do NOT:** emit events here — the return type is `()`. If you need to broadcast
+    /// a rematch message, emit `GameEvent::Broadcast` in `on_tick` on the first tick of
+    /// the new round.
     fn on_round_reset(&self, _state: &mut dyn Any) {}
 }
