@@ -1,1 +1,0 @@
-/Users/charliexue/School/Comps/claude-hackathon26/engine/target/debug/libdance_plugin.rlib: /Users/charliexue/School/Comps/claude-hackathon26/engine/dance-plugin/src/lib.rs /Users/charliexue/School/Comps/claude-hackathon26/engine/dance-plugin/src/poses.rs /Users/charliexue/School/Comps/claude-hackathon26/engine/plugin-trait/src/lib.rs
