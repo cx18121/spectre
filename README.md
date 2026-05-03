@@ -121,6 +121,17 @@ scripts/     dev.sh (LAN), tunnel.sh (Cloudflare), tailscale.sh (tailnet)
 docs/        Original sprint plans and design notes
 ```
 
+## Adding a new game
+
+PoseEngine games are Rust structs that implement the `GamePlugin` trait. The engine handles
+rooms, WebSockets, pose normalization, and round lifecycle. Your plugin provides game rules.
+
+The shortest path from idea to playable game is three steps: implement `GamePlugin`, add the
+crate to the workspace, and register it in `main.rs`. No engine files need to be touched.
+
+See [docs/GAME-SDK.md](docs/GAME-SDK.md) for the full developer guide, the boxing plugin
+walkthrough, and a copyable boilerplate skeleton.
+
 ## Tech stack
 
 | Layer       | Stack                                                          |
