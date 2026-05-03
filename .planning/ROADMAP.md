@@ -62,7 +62,12 @@ Plans:
   1. The second game (dance scoring, pose-match, or equivalent) runs end-to-end through the engine without modifying any engine source files
   2. Any trait additions required to make the second game work are treated as interface bugs and resolved before this phase closes — the phase does not ship if engine changes were needed
   3. A developer reading the README and Rustdoc can implement and register a new game plugin by following the documented steps, with the boxing plugin as the worked example
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — dance-plugin crate: DancePlugin impl, DanceState, poses.rs (POSE_LIBRARY, Y-up coords), beat clock, cosine similarity scoring, unit tests; workspace update
+- [ ] 03-02-PLAN.md — engine-core wiring: AppState plugin registry (HashMap), POST /rooms endpoint, GET / lobby HTML (UI-SPEC compliant), ws_player Option A (no on-demand creation)
+- [ ] 03-03-PLAN.md — SDK docs: Rustdoc refresh on plugin-trait (all 7 methods + 8 types), docs/GAME-SDK.md (trait reference + boxing walkthrough + quick-start boilerplate + registration steps), README teaser
 
 ## Progress
 
@@ -73,4 +78,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Engine Core | 0/5 | Not started | - |
 | 2. Plugin Trait + Boxing | 0/5 | Not started | - |
-| 3. Second Game + SDK | 0/TBD | Not started | - |
+| 3. Second Game + SDK | 0/3 | Not started | - |
