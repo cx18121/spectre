@@ -77,7 +77,7 @@ None yet.
 
 ### Blockers/Concerns
 
-None yet.
+- **Phase 4 — public base URL for QR links**: The room page at `/rooms/{code}` needs the server's public URL to generate correct QR codes (Railway URL in prod, localhost in dev). Python used `request.base_url`. Rust needs either a `PUBLIC_URL` env var (set in Railway) or `Host` header extraction from the Axum `Request`. Decide in 04-01 plan; don't hardcode localhost.
 
 ## Deferred Items
 
