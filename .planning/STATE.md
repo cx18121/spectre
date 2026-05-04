@@ -7,11 +7,11 @@ stopped_at: ~
 last_updated: "2026-05-03T00:00:00.000Z"
 last_activity: 2026-05-03 — Phases 4–6 added (lobby UX, mobile connection, overlay fidelity)
 progress:
-  total_phases: 6
+  total_phases: 9
   completed_phases: 3
-  total_plans: 19
+  total_plans: 26
   completed_plans: 13
-  percent: 68
+  percent: 50
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: Not started
 Status: Planning phase 4
 Last activity: 2026-05-03 — Phases 4–6 defined; lobby UX is the critical unblock
 
-Progress: [█████░░░░░] 50% (3/6 phases complete)
+Progress: [███░░░░░░░] 33% (3/9 phases complete)
 
 ## Performance Metrics
 
@@ -70,6 +70,9 @@ Recent decisions affecting current work:
 - Phase 4 scope: `/rooms/{code}` GET page with QR codes — Rust QR generation via `qrcode` crate
 - Phase 5 scope: QR-prefilled params trigger fast-join view; full form available via "Enter manually" escape
 - Phase 6 scope: Achafont recoverable from git commit 4de2977; add @font-face + audit DESIGN.md gaps
+- Phase 7 scope: `GamePlugin::game_type()` + `MsgJoined.game_type` + dance calibration skip + dance spectator snapshot; can run in parallel with 4–6
+- Phase 8 scope: design-first before any dance frontend code; DESIGN.md dance section must fully specify target pose skeleton rendering before Phase 9 touches Pixi.js
+- Phase 9 scope: target pose skeleton rendered from `dance_beat.target_pose` keypoints in Pixi.js; game-type routing in overlay; dance match end; mobile calibration skip
 
 ### Pending Todos
 

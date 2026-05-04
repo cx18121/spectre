@@ -89,6 +89,28 @@
 - [ ] **OVERLAY-03**: HP bar track has 1px `--gold` border per DESIGN.md; HUD structural elements use correct elevation/border spec (Level 1: `--gold` 20% opacity + inset highlight)
 - [ ] **OVERLAY-04**: All remaining DESIGN.md component gaps verified and closed: win dots snap behavior, HP bar direction (P2 right-to-left), low-HP pulse animation, button hover/active states
 
+### Dance Engine + Protocol Wiring
+
+- [ ] **DANCE-01**: `GamePlugin` trait has a `game_type() -> &'static str` method with a default impl returning `"unknown"`; `BoxingPlugin` returns `"boxing"`, `DancePlugin` returns `"dance"`
+- [ ] **DANCE-02**: `RoomHandle` stores `game_type: String`; `MsgJoined` includes a `game_type: String` field; spectator snapshot message includes `game_type`
+- [ ] **DANCE-03**: `MsgDanceBeat` (beat number, total beats, target pose keypoints) and `MsgDanceScore` (beat number, per-player cumulative scores) added to `shared/protocol.ts` with full TypeScript types
+- [ ] **DANCE-04**: Dance plugin signals calibration is not needed; engine detects this and skips the calibration handshake for dance rooms, proceeding directly to warmup
+- [ ] **DANCE-05**: On spectator join mid-dance, engine sends a dance snapshot (current beat, current scores) before switching to live broadcast stream
+
+### Dance UX Design
+
+- [ ] **DDES-01**: DESIGN.md has a Dance Game section covering: score display (cumulative similarity scale), beat indicator (countdown to next beat boundary + current beat number), target pose display spec (static skeleton silhouette at fixed overlay position), round end condition (highest cumulative score wins), match end screen (scores comparison, no KO text)
+- [ ] **DDES-02**: PRODUCT.md updated to acknowledge both game modes; dance tone defined as same disciplined dark aesthetic in a "performance" register rather than "combat" — same palette, different emotional register
+- [ ] **DDES-03**: Target pose reference visual style defined: skeleton keypoints rendered in `--text-dim`/`--text-secondary` as a static ghost silhouette; fades out and swaps on each `dance_beat` event
+
+### Dance Frontend Implementation
+
+- [ ] **DIMPL-01**: Overlay stores `game_type` from `MsgJoined` in `useSpectatorSocket` state; renders boxing HUD or dance HUD based on `game_type`
+- [ ] **DIMPL-02**: Dance HUD shows cumulative scores for P1 and P2, current beat number out of total, and a visual countdown to the next beat scoring moment
+- [ ] **DIMPL-03**: `dance_beat` events update a static target pose skeleton rendered in Pixi.js alongside live player silhouettes; skeleton fades in on new target and fades out when swapped
+- [ ] **DIMPL-04**: Dance match end screen shows final scores for both players with a winner declaration; no KO text, no HP reference
+- [ ] **DIMPL-05**: Mobile connection screen skips the calibration waiting state for dance rooms (`game_type === "dance"` received in `MsgJoined`); proceeds directly to match ready
+
 ---
 
 ## v2 Requirements
@@ -182,11 +204,25 @@
 | OVERLAY-03 | Phase 6 | Pending |
 | OVERLAY-04 | Phase 6 | Pending |
 
+| DANCE-01 | Phase 7 | Pending |
+| DANCE-02 | Phase 7 | Pending |
+| DANCE-03 | Phase 7 | Pending |
+| DANCE-04 | Phase 7 | Pending |
+| DANCE-05 | Phase 7 | Pending |
+| DDES-01 | Phase 8 | Pending |
+| DDES-02 | Phase 8 | Pending |
+| DDES-03 | Phase 8 | Pending |
+| DIMPL-01 | Phase 9 | Pending |
+| DIMPL-02 | Phase 9 | Pending |
+| DIMPL-03 | Phase 9 | Pending |
+| DIMPL-04 | Phase 9 | Pending |
+| DIMPL-05 | Phase 9 | Pending |
+
 **Coverage:**
-- v1 requirements: 54 total (39 original + 15 UI)
-- Mapped to phases: 54/54
+- v1 requirements: 67 total (39 engine/plugin + 15 UI + 13 dance)
+- Mapped to phases: 67/67
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-01*
-*Last updated: 2026-05-03 — added LOBBY, MOBILE, OVERLAY requirements for phases 4–6*
+*Last updated: 2026-05-03 — added DANCE, DDES, DIMPL requirements for phases 7–9*

@@ -16,6 +16,9 @@ Six phases carry the engine from first-principles Rust rewrite through a clean p
 - [ ] **Phase 4: Lobby UX** - SPECTRE landing page with game picker + join flow; `/rooms/{code}` page with QR codes; unblocks players from actually getting into a game
 - [ ] **Phase 5: Mobile Connection UX** - Fast-join (QR-linked one-tap screen); hide technical server URL field when params are prefilled; better error messages
 - [ ] **Phase 6: Overlay Fidelity** - Restore Achafont; close all DESIGN.md spec gaps in HUD, commentary bar, and match-end screen
+- [ ] **Phase 7: Dance Engine + Protocol** - `game_type` propagated through `MsgJoined` and spectator snapshot; dance calibration skip; `MsgDanceBeat`/`MsgDanceScore` TypeScript types
+- [ ] **Phase 8: Dance UX Design** - DESIGN.md dance section (score display, beat indicator, target pose spec, match end); PRODUCT.md two-mode update
+- [ ] **Phase 9: Dance Frontend** - Game-type-aware overlay HUD; dance score/beat display; target pose skeleton silhouette in Pixi.js; dance match end screen; mobile calibration skip
 
 ## Phase Details
 
@@ -116,10 +119,59 @@ Plans:
 - [ ] 06-01-PLAN.md — Restore Achafont: recover `overlay/public/fonts/Achafont.ttf` from git history (commit 4de2977), add `@font-face` declaration to overlay CSS
 - [ ] 06-02-PLAN.md — Design spec audit: HP track gold border, commentary bar backdrop/border/tag, HUD elevation Level 1, any remaining DESIGN.md gaps; visual verification pass
 
+### Phase 7: Dance Engine + Protocol
+**Goal**: The Rust engine propagates game type to all clients; dance-specific wire messages are typed; dance rooms skip calibration and send snapshots to late-joining spectators
+**Depends on**: Phase 3
+**Requirements**: DANCE-01, DANCE-02, DANCE-03, DANCE-04, DANCE-05
+**Success Criteria** (what must be TRUE):
+  1. A spectator or player connecting to any room receives `game_type: "boxing"` or `game_type: "dance"` in `MsgJoined`
+  2. A spectator joining mid-dance receives current beat number and cumulative scores before entering the live stream
+  3. Dance players connect and the game starts without a calibration step — no "hold still" prompt
+  4. `MsgDanceBeat` and `MsgDanceScore` are fully typed in `shared/protocol.ts`; TypeScript compiler accepts them without casts
+**Plans**: 2 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — `GamePlugin::game_type()` trait method; `RoomHandle.game_type`; `MsgJoined.game_type`; spectator snapshot includes game_type; dance calibration skip in engine
+- [ ] 07-02-PLAN.md — `MsgDanceBeat` and `MsgDanceScore` in `shared/protocol.ts`; dance spectator snapshot message (beat + scores); protocol golden-file update
+
+### Phase 8: Dance UX Design
+**Goal**: DESIGN.md fully covers the dance game experience; both game modes have a documented visual language before a pixel of dance UI is implemented
+**Depends on**: Phase 7 (protocol known before designing around it)
+**Requirements**: DDES-01, DDES-02, DDES-03
+**Success Criteria** (what must be TRUE):
+  1. DESIGN.md has a complete Dance Game section: score display, beat indicator, target pose skeleton spec, round end, match end — sufficient to implement without ambiguity
+  2. PRODUCT.md addresses both game modes; dance tone is defined and distinct from boxing without breaking the shared aesthetic
+  3. Target pose rendering approach is fully specified: color, position, opacity, animation timing on beat swap
+**Plans**: 1 plan
+
+Plans:
+- [ ] 08-01-PLAN.md — DESIGN.md dance section (score display spec, beat countdown, target skeleton style, round/match end); PRODUCT.md two-mode tone definition
+
+### Phase 9: Dance Frontend
+**Goal**: The overlay renders a purpose-built dance HUD; spectators see target pose silhouettes updating each beat; the mobile app skips calibration for dance; the match end screen shows scores not KO
+**Depends on**: Phase 7 (game_type in protocol), Phase 8 (design spec to implement against)
+**Requirements**: DIMPL-01, DIMPL-02, DIMPL-03, DIMPL-04, DIMPL-05
+**Success Criteria** (what must be TRUE):
+  1. Opening the overlay for a boxing room shows the boxing HUD; opening it for a dance room shows the dance HUD — game-type routing works without manual URL params
+  2. The target pose skeleton appears in Pixi.js at each `dance_beat` event and visually swaps (with fade) when the next beat arrives
+  3. P1 and P2 cumulative scores update in real-time; beat number and countdown are legible at a glance
+  4. Dance match end shows final scores and a winner declaration — no HP bar, no KO text
+  5. Mobile players in a dance room proceed directly to the game after connecting — no calibration prompt
+**Plans**: 4 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — `useSpectatorSocket`: store `game_type`; handle `dance_beat` / `dance_score` / dance snapshot; game-type routing in `App.tsx` render branch
+- [ ] 09-02-PLAN.md — `DanceHud` component: P1/P2 score bars, beat counter (N / 16), beat countdown visual; wired to `useSpectatorSocket` dance state
+- [ ] 09-03-PLAN.md — Target pose skeleton in Pixi.js: render static keypoint skeleton from `dance_beat.target_pose`; per-beat fade-out / fade-in swap animation; positioned alongside live silhouettes
+- [ ] 09-04-PLAN.md — Dance match end screen (final scores, winner, rematch); mobile calibration skip when `game_type === "dance"`
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
+Phase 7 can run in parallel with phases 4–6 (engine work, no UI dependency).
+Phase 8 depends on Phase 7 (protocol must be known before designing around it).
+Phase 9 depends on both Phase 7 and Phase 8.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -129,3 +181,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Lobby UX | 0/2 | Not started | - |
 | 5. Mobile Connection UX | 0/1 | Not started | - |
 | 6. Overlay Fidelity | 0/2 | Not started | - |
+| 7. Dance Engine + Protocol | 0/2 | Not started | - |
+| 8. Dance UX Design | 0/1 | Not started | - |
+| 9. Dance Frontend | 0/4 | Not started | - |
