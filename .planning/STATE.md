@@ -2,41 +2,41 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: milestone_complete
-stopped_at: Phase 3 UI-SPEC approved
-last_updated: "2026-05-03T03:01:36.949Z"
-last_activity: 2026-05-03 -- Phase --phase execution started
+status: planning
+stopped_at: ~
+last_updated: "2026-05-03T00:00:00.000Z"
+last_activity: 2026-05-03 — Phases 4–6 added (lobby UX, mobile connection, overlay fidelity)
 progress:
-  total_phases: 3
+  total_phases: 6
   completed_phases: 3
-  total_plans: 14
-  completed_plans: 11
-  percent: 100
+  total_plans: 19
+  completed_plans: 13
+  percent: 68
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-01)
+See: .planning/PROJECT.md (updated 2026-05-03)
 
 **Core value:** The engine must make it trivially easy to add a new pose-based game by implementing a well-defined plugin interface — without touching the engine core or understanding its internals.
-**Current focus:** Phase --phase — 03
+**Current focus:** Phase 04 — Lobby UX
 
 ## Current Position
 
-Phase: 03
+Phase: 04
 Plan: Not started
-Status: Milestone complete
-Last activity: 2026-05-03
+Status: Planning phase 4
+Last activity: 2026-05-03 — Phases 4–6 defined; lobby UX is the critical unblock
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50% (3/6 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 9
+- Total plans completed: 13
 - Average duration: —
 - Total execution time: 0 hours
 
@@ -44,7 +44,8 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 02 | 6 | - | - |
+| 01 | 5 | - | - |
+| 02 | 5 | - | - |
 | 03 | 3 | - | - |
 
 **Recent Trend:**
@@ -65,6 +66,10 @@ Recent decisions affecting current work:
 - Init: Wire protocol unchanged — TypeScript clients are not modified
 - Init: Game plugin as Rust trait (not WASM/scripting); all plugin methods synchronous
 - Init: Boxing is first plugin; second game validates that the abstraction generalizes
+- Phase 4 scope: game type selected on landing page (before room creation), not on a separate step
+- Phase 4 scope: `/rooms/{code}` GET page with QR codes — Rust QR generation via `qrcode` crate
+- Phase 5 scope: QR-prefilled params trigger fast-join view; full form available via "Enter manually" escape
+- Phase 6 scope: Achafont recoverable from git commit 4de2977; add @font-face + audit DESIGN.md gaps
 
 ### Pending Todos
 
@@ -83,8 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 3 UI-SPEC approved
-Resume file: --resume-file
-
-**Planned Phase:** 3 (second-game-sdk) — 3 plans — 2026-05-03T02:54:13.906Z
+Last session: 2026-05-03
+Stopped at: Phases 4–6 defined, ready to plan phase 4
+Resume file: —

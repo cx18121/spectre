@@ -65,6 +65,30 @@
 - [ ] **SDK-02**: Boxing plugin serves as an annotated worked example in the repository README or developer guide
 - [ ] **SDK-03**: README explains how to add a new game in concrete steps (implement trait, register plugin, done)
 
+### Lobby UX
+
+- [ ] **LOBBY-01**: Landing page shows SPECTRE title, tagline ("real punches. real fights."), and game type selector (boxing / dance) before creating a room
+- [ ] **LOBBY-02**: User selects game type via radio/toggle on the landing page; selection is required before "Create Room" is enabled
+- [ ] **LOBBY-03**: "Create Room" POSTs to `/rooms?game={type}`, creates a room for the selected game, and navigates to `/rooms/{code}`
+- [ ] **LOBBY-04**: User can join an existing room from the landing page by entering a 6-char code and clicking "Join"
+- [ ] **LOBBY-05**: `GET /rooms/{code}` renders a room page with the room code displayed prominently and three connection cards: Player 1, Player 2, Overlay
+- [ ] **LOBBY-06**: Each connection card contains a QR code encoding the full prefilled URL (server + room + slot/role params)
+- [ ] **LOBBY-07**: Each connection card shows a clickable URL and a copy-to-clipboard button for the prefilled link
+- [ ] **LOBBY-08**: Landing page and room page use DESIGN.md color tokens, Inter typography, and component specs
+
+### Mobile Connection UX
+
+- [ ] **MOBILE-01**: When `?server=`, `?room=`, and `?slot=` are all present in the URL (QR-linked), connection screen shows a streamlined one-tap join screen instead of the full form
+- [ ] **MOBILE-02**: Full connection form (including raw server URL field) is only shown when params are absent or user explicitly taps "Enter manually"
+- [ ] **MOBILE-03**: Connection errors distinguish between room-not-found, server-unreachable, and slot-taken scenarios
+
+### Overlay Fidelity
+
+- [ ] **OVERLAY-01**: Achafont restored via `@font-face` from `overlay/public/fonts/Achafont.ttf` (recovered from git history); used for round flash, countdown, KO text, and match end title as specified in DESIGN.md
+- [ ] **OVERLAY-02**: Commentary bar matches DESIGN.md exactly: `--bg-mid` at 94% opacity, `backdrop-filter: blur(6px)`, 1px `--accent` at 35% opacity border, SHADOW tag style, blinking cursor
+- [ ] **OVERLAY-03**: HP bar track has 1px `--gold` border per DESIGN.md; HUD structural elements use correct elevation/border spec (Level 1: `--gold` 20% opacity + inset highlight)
+- [ ] **OVERLAY-04**: All remaining DESIGN.md component gaps verified and closed: win dots snap behavior, HP bar direction (P2 right-to-left), low-HP pulse animation, button hover/active states
+
 ---
 
 ## v2 Requirements
@@ -142,11 +166,27 @@
 | SDK-02 | Phase 3 | Pending |
 | SDK-03 | Phase 3 | Pending |
 
+| LOBBY-01 | Phase 4 | Pending |
+| LOBBY-02 | Phase 4 | Pending |
+| LOBBY-03 | Phase 4 | Pending |
+| LOBBY-04 | Phase 4 | Pending |
+| LOBBY-05 | Phase 4 | Pending |
+| LOBBY-06 | Phase 4 | Pending |
+| LOBBY-07 | Phase 4 | Pending |
+| LOBBY-08 | Phase 4 | Pending |
+| MOBILE-01 | Phase 5 | Pending |
+| MOBILE-02 | Phase 5 | Pending |
+| MOBILE-03 | Phase 5 | Pending |
+| OVERLAY-01 | Phase 6 | Pending |
+| OVERLAY-02 | Phase 6 | Pending |
+| OVERLAY-03 | Phase 6 | Pending |
+| OVERLAY-04 | Phase 6 | Pending |
+
 **Coverage:**
-- v1 requirements: 39 total
-- Mapped to phases: 39/39
+- v1 requirements: 54 total (39 original + 15 UI)
+- Mapped to phases: 54/54
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-01*
-*Last updated: 2026-05-01 — traceability populated after roadmap creation*
+*Last updated: 2026-05-03 — added LOBBY, MOBILE, OVERLAY requirements for phases 4–6*

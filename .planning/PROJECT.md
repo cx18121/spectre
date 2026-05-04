@@ -21,16 +21,22 @@ The engine must make it trivially easy to add a new pose-based game by implement
 - ✓ Calibration handshake (reference velocity) — existing
 - ✓ Docker + Railway deployment — existing
 
+### Validated
+
+- ✓ Rust game engine core: Axum + Tokio WebSocket server — Phase 1
+- ✓ Game plugin trait (`GamePlugin`, `TickContext`, `GameEvent`) — Phase 2
+- ✓ Boxing game plugin with hit detection, damage, bot mode — Phase 2
+- ✓ Calibration-persist bug fixed (`reference_velocity` lives on PlayerSlot for Room lifetime) — Phase 2
+- ✓ Spectator reconnect snapshot (HP, wins, round, elapsed time sent on join) — Phase 1
+- ✓ DancePlugin: second game validates the trait generalizes — Phase 3
+- ✓ SDK documentation (GAME-SDK.md 800 lines, full Rustdoc, 100 tests) — Phase 3
+
 ### Active
 
-- [ ] Rust game engine core: Axum + Tokio WebSocket server replacing FastAPI
-- [ ] Game plugin trait: `on_tick`, `on_player_join`, `on_player_leave`, `on_calibration_complete`
-- [ ] Boxing game plugin: port of existing Python hit detection, damage, round lifecycle
-- [ ] Fix calibration-reset-on-rematch bug (calibration persists for Room lifetime)
-- [ ] Fix win counter lost on spectator reconnect (server sends cumulative state on join)
-- [ ] Reference second game plugin (dance/score or pose-match) to stress-test the interface
-- [ ] SDK documentation: trait interface + boxing as example, enough for a developer (or LLM) to add a new game
-- [ ] AI game generation (stretch): Claude generates a game plugin from a natural language description — deferred until engine and SDK are proven
+- [ ] Lobby UX: SPECTRE landing page with game picker, Create Room, Join by code — Phase 4
+- [ ] Room page (`/rooms/{code}`): P1/P2/Overlay QR cards with prefilled URLs — Phase 4
+- [ ] Mobile fast-join: QR-prefilled params → one-tap connection screen — Phase 5
+- [ ] Overlay fidelity: Achafont restored, all DESIGN.md spec gaps closed — Phase 6
 
 ### Out of Scope
 
@@ -88,4 +94,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-02 — Phase 03 (second-game-sdk) complete: DancePlugin crate added (9 unit tests, GAME2-01/02 confirmed), plugin registry + POST /rooms + GET / lobby wired into engine-core, SDK docs published (GAME-SDK.md 800 lines, full Rustdoc), 100 tests passing across workspace*
+*Last updated: 2026-05-03 — Phases 4–6 added: lobby UX (LOBBY-01..08), mobile connection UX (MOBILE-01..03), overlay fidelity (OVERLAY-01..04). Phases 1–3 validated and complete.*
