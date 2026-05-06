@@ -127,6 +127,19 @@ fn ws_url_from_http(http_url: &str) -> String {
 /// Static — no user input, no escaping needed. (WR-01)
 const QR_ERROR_SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" fill="#f5efe4"/><text x="80" y="86" font-family="monospace" font-size="16" font-weight="900" text-anchor="middle" fill="#0c0809">QR error</text></svg>"##;
 
+/// Strip a leading `<?xml ... ?>` processing instruction from an SVG string so
+/// it can be embedded inline in HTML5 body content. Idempotent — returns the
+/// input unchanged if no prolog is present. (WR-02)
+fn strip_xml_prolog(svg: &str) -> String {
+    let trimmed = svg.trim_start();
+    if trimmed.starts_with("<?xml") {
+        if let Some((_, rest)) = trimmed.split_once("?>") {
+            return rest.trim_start().to_string();
+        }
+    }
+    svg.to_string()
+}
+
 /// Generate an inline SVG QR code for the given URL using the qrcode crate.
 /// Dark module color #0c0809 (--bg-deep), light module color #f5efe4 (--text-primary).
 ///
@@ -135,6 +148,8 @@ const QR_ERROR_SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" width="16
 /// or rendering a misleading fallback QR that decodes to the literal
 /// string "error". A failure is now distinguishable at-a-glance from a
 /// valid scannable code, and the error is surfaced through tracing.
+/// WR-02: strip the `<?xml ... ?>` prolog from `qrcode`'s output so the
+/// returned fragment is a valid HTML5 inline-SVG element.
 fn generate_qr_svg(url: &str) -> String {
     use qrcode::QrCode;
     use qrcode::render::svg;
@@ -149,12 +164,14 @@ fn generate_qr_svg(url: &str) -> String {
             return QR_ERROR_SVG.to_string();
         }
     };
-    code.render::<svg::Color>()
+    let raw = code
+        .render::<svg::Color>()
         .dark_color(svg::Color("#0c0809"))
         .light_color(svg::Color("#f5efe4"))
         .min_dimensions(160, 160)
         .max_dimensions(160, 160)
-        .build()
+        .build();
+    strip_xml_prolog(&raw)
 }
 
 /// Build the room page HTML with three QR cards (P1, P2, Overlay).
@@ -1133,6 +1150,25 @@ mod http_tests {
             Some(v) => std::env::set_var("PUBLIC_URL", v),
             None => std::env::remove_var("PUBLIC_URL"),
         }
+    }
+
+    /// WR-02 regression: the rendered room page must not contain an
+    /// `<?xml ... ?>` prolog inside its HTML body (the qrcode crate emits
+    /// one before `<svg ...>` by default, but it is stripped before
+    /// embedding so the page is a valid HTML5 document).
+    #[test]
+    fn room_page_strips_xml_prolog_from_qr_svgs() {
+        let html = room_page_html("ABCDEF", "boxing", "https://example.com");
+        assert!(
+            !html.contains("<?xml"),
+            "rendered room page must not contain an <?xml ?> prolog"
+        );
+        // Sanity check: the QR cards themselves are present (otherwise the
+        // negative assertion above is vacuous).
+        assert!(
+            html.contains("<svg"),
+            "expected at least one inline <svg> element from QR rendering"
+        );
     }
 
     /// BLK-02 regression: PUBLIC_URL set without a scheme is normalized to
