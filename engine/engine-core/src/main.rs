@@ -432,7 +432,7 @@ async fn create_room(
                 .take(6)
                 .map(|c| char::from(c).to_ascii_uppercase())
                 .collect();
-            let code = app.rooms.create_room(initial_code, Arc::clone(plugin));
+            let code = app.rooms.create_room(initial_code, Arc::clone(plugin), game.to_string());
             (
                 axum::http::StatusCode::CREATED,
                 Json(CreateRoomResponse { room_code: code }),
