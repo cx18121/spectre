@@ -19,6 +19,7 @@ pub struct RoomHandle {
     pub pose_tx: broadcast::Sender<String>,
     pub game_tx: broadcast::Sender<String>,
     pub created_at: Instant,
+    pub game_type: String,
 }
 
 impl RoomHandle {
@@ -47,7 +48,7 @@ impl RoomManager {
     ///
     /// Uses DashMap entry API to atomically claim the slot and prevent TOCTOU
     /// races between concurrent join requests for the same new room (WR-01).
-    pub fn create_room(&self, room_code: String, plugin: Arc<dyn GamePlugin + Send + Sync>) -> String {
+    pub fn create_room(&self, room_code: String, plugin: Arc<dyn GamePlugin + Send + Sync>, game_type: String) -> String {
         // Candidate codes: try the requested code first, then random fallbacks.
         let mut candidate = room_code.clone();
         loop {
@@ -84,6 +85,7 @@ impl RoomManager {
                         pose_tx,
                         game_tx,
                         created_at: Instant::now(),
+                        game_type,
                     };
                     slot.insert(handle);
                     tracing::info!("room {} created", code);
@@ -112,6 +114,11 @@ impl RoomManager {
             (h.game_tx.subscribe(), h.pose_tx.subscribe(), h.cmd_tx.clone())
         })
     }
+
+    /// Returns the game_type for a room without holding DashMap guard across await.
+    pub fn get_room_game_type(&self, code: &str) -> Option<String> {
+        self.rooms.get(code).map(|h| h.game_type.clone())
+    }
 }
 
 #[cfg(test)]
@@ -128,7 +135,7 @@ mod tests {
     #[tokio::test]
     async fn create_room_uses_provided_code() {
         let mgr = RoomManager::new();
-        let code = mgr.create_room("TESTAB".to_string(), boxing_plugin());
+        let code = mgr.create_room("TESTAB".to_string(), boxing_plugin(), "boxing".to_string());
         assert_eq!(code, "TESTAB");
         assert!(mgr.rooms.contains_key("TESTAB"), "room must be stored under provided code");
     }
@@ -137,10 +144,10 @@ mod tests {
     async fn create_room_collision_generates_new_code() {
         let mgr = RoomManager::new();
         // Occupy "AAAABB" first
-        let first = mgr.create_room("AAAABB".to_string(), boxing_plugin());
+        let first = mgr.create_room("AAAABB".to_string(), boxing_plugin(), "boxing".to_string());
         assert_eq!(first, "AAAABB");
         // Request the same code — should get a different 6-char random code
-        let second = mgr.create_room("AAAABB".to_string(), boxing_plugin());
+        let second = mgr.create_room("AAAABB".to_string(), boxing_plugin(), "boxing".to_string());
         assert_ne!(second, "AAAABB", "collision must produce a different code");
         assert_eq!(second.len(), 6);
         assert!(second.chars().all(|c| c.is_ascii_alphanumeric()));
@@ -149,14 +156,14 @@ mod tests {
     #[tokio::test]
     async fn create_room_stores_lookup_entry() {
         let mgr = RoomManager::new();
-        let code = mgr.create_room("LOOKUP".to_string(), boxing_plugin());
+        let code = mgr.create_room("LOOKUP".to_string(), boxing_plugin(), "boxing".to_string());
         assert!(mgr.get_cmd_tx(&code).is_some(), "get_cmd_tx must find newly created room");
     }
 
     #[tokio::test]
     async fn room_not_expired_when_match_not_over() {
         let mgr = RoomManager::new();
-        let code = mgr.create_room("EXPIRY".to_string(), boxing_plugin());
+        let code = mgr.create_room("EXPIRY".to_string(), boxing_plugin(), "boxing".to_string());
         let handle = mgr.rooms.get(&code).unwrap();
         assert!(!handle.is_expired(), "fresh room must not be expired");
     }
@@ -164,7 +171,7 @@ mod tests {
     #[tokio::test]
     async fn room_not_expired_when_disconnect_is_recent() {
         let mgr = RoomManager::new();
-        let code = mgr.create_room("RECENT".to_string(), boxing_plugin());
+        let code = mgr.create_room("RECENT".to_string(), boxing_plugin(), "boxing".to_string());
         {
             let handle = mgr.rooms.get(&code).unwrap();
             // Simulate match over + player just disconnected
@@ -184,7 +191,7 @@ mod tests {
     #[tokio::test]
     async fn subscribe_spectator_returns_channels_for_existing_room() {
         let mgr = RoomManager::new();
-        let code = mgr.create_room("SPECTR".to_string(), boxing_plugin());
+        let code = mgr.create_room("SPECTR".to_string(), boxing_plugin(), "boxing".to_string());
         assert!(mgr.subscribe_spectator(&code).is_some());
     }
 }
