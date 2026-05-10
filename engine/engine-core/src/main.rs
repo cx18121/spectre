@@ -1212,6 +1212,161 @@ mod http_tests {
         );
     }
 
+    // -----------------------------------------------------------------------
+    // html_escape tests
+    // -----------------------------------------------------------------------
+    #[test]
+    fn html_escape_ampersand() {
+        assert_eq!(html_escape("a&b"), "a&amp;b");
+    }
+
+    #[test]
+    fn html_escape_less_than() {
+        assert_eq!(html_escape("<tag>"), "&lt;tag&gt;");
+    }
+
+    #[test]
+    fn html_escape_greater_than() {
+        assert_eq!(html_escape("a>b"), "a&gt;b");
+    }
+
+    #[test]
+    fn html_escape_double_quote() {
+        assert_eq!(html_escape(r#"say "hello""#), "say &quot;hello&quot;");
+    }
+
+    #[test]
+    fn html_escape_single_quote() {
+        assert_eq!(html_escape("it's"), "it&#39;s");
+    }
+
+    #[test]
+    fn html_escape_clean_string_unchanged() {
+        assert_eq!(html_escape("hello world"), "hello world");
+    }
+
+    #[test]
+    fn html_escape_empty_string() {
+        assert_eq!(html_escape(""), "");
+    }
+
+    #[test]
+    fn html_escape_all_five_chars_together() {
+        let input = "&<>\"'";
+        let output = html_escape(input);
+        assert_eq!(output, "&amp;&lt;&gt;&quot;&#39;");
+    }
+
+    // -----------------------------------------------------------------------
+    // host_is_safe tests
+    // -----------------------------------------------------------------------
+    #[test]
+    fn host_is_safe_valid_hostname() {
+        assert!(host_is_safe("example.com"));
+    }
+
+    #[test]
+    fn host_is_safe_valid_with_port() {
+        assert!(host_is_safe("localhost:8000"));
+    }
+
+    #[test]
+    fn host_is_safe_valid_ip() {
+        assert!(host_is_safe("127.0.0.1"));
+    }
+
+    #[test]
+    fn host_is_safe_rejects_single_quote() {
+        assert!(!host_is_safe("evil.com'"));
+    }
+
+    #[test]
+    fn host_is_safe_rejects_less_than() {
+        assert!(!host_is_safe("evil.com<script>"));
+    }
+
+    #[test]
+    fn host_is_safe_rejects_space() {
+        assert!(!host_is_safe("evil com"));
+    }
+
+    #[test]
+    fn host_is_safe_rejects_empty_string() {
+        assert!(!host_is_safe(""));
+    }
+
+    #[test]
+    fn host_is_safe_rejects_path_traversal() {
+        assert!(!host_is_safe("evil.com/../etc/passwd"));
+    }
+
+    // -----------------------------------------------------------------------
+    // ws_url_from_http tests
+    // -----------------------------------------------------------------------
+    #[test]
+    fn ws_url_https_becomes_wss() {
+        assert_eq!(ws_url_from_http("https://example.com/path"), "wss://example.com/path");
+    }
+
+    #[test]
+    fn ws_url_http_becomes_ws() {
+        assert_eq!(ws_url_from_http("http://localhost:8000"), "ws://localhost:8000");
+    }
+
+    #[test]
+    fn ws_url_https_not_double_converted() {
+        // Must not produce ws://s://...
+        let result = ws_url_from_http("https://example.com");
+        assert!(!result.contains("https://"), "https:// must not remain after conversion");
+        assert!(result.starts_with("wss://"), "must start with wss://, got: {}", result);
+    }
+
+    #[test]
+    fn ws_url_schemeless_gets_wss_prefix() {
+        let result = ws_url_from_http("example.com/path");
+        assert!(result.starts_with("wss://"), "schemeless input must get wss:// prefix, got: {}", result);
+    }
+
+    // -----------------------------------------------------------------------
+    // strip_xml_prolog tests
+    // -----------------------------------------------------------------------
+    #[test]
+    fn strip_xml_prolog_removes_prolog() {
+        let svg = r#"<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg"></svg>"#;
+        let result = strip_xml_prolog(svg);
+        assert!(!result.contains("<?xml"), "prolog must be stripped");
+        assert!(result.starts_with("<svg"), "result must start with <svg after stripping");
+    }
+
+    #[test]
+    fn strip_xml_prolog_no_prolog_unchanged() {
+        let svg = r#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#;
+        let result = strip_xml_prolog(svg);
+        assert_eq!(result, svg, "SVG without prolog must be returned unchanged");
+    }
+
+    #[test]
+    fn strip_xml_prolog_empty_string() {
+        assert_eq!(strip_xml_prolog(""), "");
+    }
+
+    // -----------------------------------------------------------------------
+    // room_not_found_html tests
+    // -----------------------------------------------------------------------
+    #[test]
+    fn room_not_found_html_contains_not_found_text() {
+        let html = room_not_found_html();
+        assert!(!html.is_empty(), "room_not_found_html must return non-empty HTML");
+        // Check it contains either "404" or "not found" (case-insensitive)
+        let lower = html.to_lowercase();
+        assert!(
+            lower.contains("not found") || lower.contains("404"),
+            "room_not_found_html must contain 'not found' or '404', got snippet: {}",
+            &html[..100.min(html.len())]
+        );
+        assert!(html.contains("<!DOCTYPE html>") || html.contains("<html"), "must be HTML document");
+    }
+
     /// WR-02 regression: the rendered room page must not contain an
     /// `<?xml ... ?>` prolog inside its HTML body (the qrcode crate emits
     /// one before `<svg ...>` by default, but it is stripped before

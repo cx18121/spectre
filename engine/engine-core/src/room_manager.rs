@@ -208,6 +208,87 @@ mod tests {
         let code = mgr.create_room("SPECTR".to_string(), boxing_plugin(), "boxing".to_string());
         assert!(mgr.subscribe_spectator(&code).is_some());
     }
+
+    // -----------------------------------------------------------------------
+    // Task 1 & 2: get_room_game_type tests
+    // -----------------------------------------------------------------------
+    #[tokio::test]
+    async fn get_room_game_type_returns_boxing_for_boxing_room() {
+        let mgr = RoomManager::new();
+        let code = mgr.create_room("BOXRM1".to_string(), boxing_plugin(), "boxing".to_string());
+        let gt = mgr.get_room_game_type(&code);
+        assert_eq!(gt, Some("boxing".to_string()), "game_type for boxing room must be 'boxing'");
+    }
+
+    #[tokio::test]
+    async fn get_room_game_type_returns_none_for_nonexistent_code() {
+        let mgr = RoomManager::new();
+        let gt = mgr.get_room_game_type("NOPE00");
+        assert!(gt.is_none(), "get_room_game_type must return None for nonexistent code");
+    }
+
+    #[tokio::test]
+    async fn create_room_game_type_stored_on_handle() {
+        let mgr = RoomManager::new();
+        let code = mgr.create_room("DANCE1".to_string(), boxing_plugin(), "dance".to_string());
+        let handle = mgr.rooms.get(&code).expect("room must exist");
+        assert_eq!(handle.game_type, "dance", "game_type on RoomHandle must match what was passed");
+    }
+
+    // -----------------------------------------------------------------------
+    // Task 2: Room expiry tests
+    // -----------------------------------------------------------------------
+
+    /// Verify a room with match_over=true AND a disconnect time >10 minutes ago
+    /// is detected as expired. We simulate the passage of time by backdating
+    /// the disconnect timestamp rather than sleeping.
+    #[tokio::test]
+    async fn room_is_expired_after_match_over_and_old_disconnect() {
+        let mgr = RoomManager::new();
+        let code = mgr.create_room("EXPIR2".to_string(), boxing_plugin(), "boxing".to_string());
+        {
+            let handle = mgr.rooms.get(&code).unwrap();
+            handle.match_over.store(true, std::sync::atomic::Ordering::Relaxed);
+            // Backdate the disconnect timestamp by 11 minutes (> 10 minute TTL)
+            *handle.last_player_disconnected_at.lock().unwrap() =
+                Some(std::time::Instant::now() - Duration::from_secs(660));
+        }
+        let handle = mgr.rooms.get(&code).unwrap();
+        assert!(handle.is_expired(), "room with match_over and old disconnect must be expired");
+    }
+
+    /// Rooms that have not completed a match (match_over=false) must not expire
+    /// regardless of any disconnect timestamp. This guards against active rooms
+    /// being swept by the expiry task.
+    #[tokio::test]
+    async fn room_is_not_expired_when_match_not_over_even_if_old_disconnect() {
+        let mgr = RoomManager::new();
+        let code = mgr.create_room("ALIVE1".to_string(), boxing_plugin(), "boxing".to_string());
+        {
+            let handle = mgr.rooms.get(&code).unwrap();
+            // match_over stays false — expiry must not trigger
+            *handle.last_player_disconnected_at.lock().unwrap() =
+                Some(std::time::Instant::now() - Duration::from_secs(660));
+        }
+        let handle = mgr.rooms.get(&code).unwrap();
+        assert!(!handle.is_expired(), "room with match not over must not be expired");
+    }
+
+    // -----------------------------------------------------------------------
+    // Task 2: Uppercase room code / case handling
+    // -----------------------------------------------------------------------
+
+    /// The manager uses the exact case passed to create_room (caller normalises
+    /// to uppercase before calling). Verify that lookups with the same case succeed.
+    #[tokio::test]
+    async fn room_code_exact_case_used() {
+        let mgr = RoomManager::new();
+        // create_room stores the code as-is (uppercasing is done by the HTTP handler)
+        let code = mgr.create_room("UPPER1".to_string(), boxing_plugin(), "boxing".to_string());
+        assert_eq!(code, "UPPER1");
+        assert!(mgr.get_cmd_tx("UPPER1").is_some(), "uppercase lookup must succeed");
+        assert!(mgr.get_cmd_tx("upper1").is_none(), "lowercase lookup must fail (manager is case-sensitive)");
+    }
 }
 
 /// Background task: scan for expired rooms every 60 seconds and remove them (D-08, ENG-13).

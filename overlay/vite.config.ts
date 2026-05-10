@@ -11,4 +11,9 @@ export default defineConfig(({ command }) => ({
       '@shared': path.resolve(import.meta.dirname, '../shared'),
     },
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
 }))

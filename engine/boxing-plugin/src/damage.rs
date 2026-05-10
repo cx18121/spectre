@@ -61,4 +61,49 @@ mod tests {
     fn compute_damage_extreme_vel_clamped_to_base_max() {
         assert_eq!(compute_damage(BodyRegion::HeadThroat, 99.0, Some(3.0)), 25);
     }
+
+    // -----------------------------------------------------------------------
+    // Task 3: Additional damage edge case tests
+    // -----------------------------------------------------------------------
+
+    /// Velocity exactly zero → t=0 → raw = base_min → result = base_min.
+    /// Verifies no divide-by-zero or underflow.
+    #[test]
+    fn compute_damage_zero_velocity_all_regions_base_min() {
+        // BlockHand: base_min=2
+        assert_eq!(compute_damage(BodyRegion::BlockHand, 0.0, Some(3.0)), 2);
+        // LegThigh: base_min=3
+        assert_eq!(compute_damage(BodyRegion::LegThigh, 0.0, Some(3.0)), 3);
+        // TorsoUpper: base_min=9
+        assert_eq!(compute_damage(BodyRegion::TorsoUpper, 0.0, Some(3.0)), 9);
+    }
+
+    /// Minimum threshold velocity: vel = ref_v * 2 * epsilon → t ≈ 0 → base_min.
+    #[test]
+    fn compute_damage_near_zero_velocity_clamps_to_base_min() {
+        // vel very small → t ≈ 0 → result ≈ base_min (= 3 for LegShin)
+        let dmg = compute_damage(BodyRegion::LegShin, 0.001, Some(3.0));
+        // t = 0.001 / (2.0 * 3.0) = 0.000167 → raw ≈ 3 + 2*0.000167 ≈ 3.0003 → 3
+        assert_eq!(dmg, 3);
+    }
+
+    /// High velocity → t=1.0 (clamped) → raw = base_max.
+    #[test]
+    fn compute_damage_high_velocity_returns_base_max() {
+        // TorsoLower: base_max = 9. vel=100 → t clamped to 1.0 → result=9
+        assert_eq!(compute_damage(BodyRegion::TorsoLower, 100.0, Some(3.0)), 9);
+        // HeadFace: base_max=20
+        assert_eq!(compute_damage(BodyRegion::HeadFace, 100.0, Some(3.0)), 20);
+    }
+
+    /// reference_velocity of 0.0 should be clamped to 0.1 (max(ref, 0.1)) to
+    /// prevent divide-by-zero and extremely large t values.
+    #[test]
+    fn compute_damage_zero_ref_velocity_handled_gracefully() {
+        // ref_v=0.0 → clamped to 0.1 → t = vel / (2.0 * 0.1) = vel * 5
+        // Any reasonable vel will give t >= 1.0 → clamp → base_max
+        let dmg = compute_damage(BodyRegion::BlockForearm, 1.0, Some(0.0));
+        // t = 1.0 / (2.0 * 0.1) = 5.0 → clamped to 1.0 → result = base_max = 4
+        assert_eq!(dmg, 4);
+    }
 }

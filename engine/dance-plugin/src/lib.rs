@@ -577,6 +577,143 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
+    // Task 4: Cosine similarity edge cases
+    // -----------------------------------------------------------------------
+
+    /// All-zero player pose (all x=0, y=0) against any target → pm < 1e-9 → 0.0.
+    #[test]
+    fn score_pose_all_zero_player_returns_zero() {
+        let zero_frame = make_frame(|_| PoseKeypoint {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            visibility: 1.0,
+        });
+        let target = poses::ARMS_UP.keypoints.as_ref();
+        let result = score_pose(&zero_frame, target);
+        assert_eq!(result, 0.0, "all-zero pose must score 0.0 (pm < 1e-9 branch)");
+    }
+
+    /// Perfect match (player == target) → cosine similarity = 1.0.
+    /// The existing `score_pose_returns_one_for_identical` tests this but asserts > 0.9;
+    /// this variant asserts strict equality after clamping to [0, 1].
+    #[test]
+    fn score_pose_perfect_match_is_one() {
+        let frame = make_frame(|i| PoseKeypoint {
+            x: poses::ARMS_UP.keypoints[i].x,
+            y: poses::ARMS_UP.keypoints[i].y,
+            z: 0.0,
+            visibility: 1.0,
+        });
+        let target = poses::ARMS_UP.keypoints.as_ref();
+        let result = score_pose(&frame, target);
+        // clamp(1.0, 0.0, 1.0) = 1.0
+        assert!(
+            (result - 1.0).abs() < 1e-9,
+            "identical frame must score 1.0, got {}",
+            result
+        );
+    }
+
+    /// Anti-parallel pose (all negated x/y) → dot < 0 → clamped to 0.0.
+    /// The function clamps to [0.0, 1.0], so a negative raw cosine becomes 0.0.
+    #[test]
+    fn score_pose_anti_parallel_clamped_to_zero() {
+        // Use ARMS_UP target; player has all signs flipped
+        let frame = make_frame(|i| PoseKeypoint {
+            x: -poses::ARMS_UP.keypoints[i].x,
+            y: -poses::ARMS_UP.keypoints[i].y,
+            z: 0.0,
+            visibility: 1.0,
+        });
+        let target = poses::ARMS_UP.keypoints.as_ref();
+        let result = score_pose(&frame, target);
+        // Raw cosine = -1.0 → clamped to 0.0
+        assert_eq!(result, 0.0, "anti-parallel pose must clamp to 0.0 (not -1.0)");
+    }
+
+    // -----------------------------------------------------------------------
+    // Task 4: Score accumulation
+    // -----------------------------------------------------------------------
+
+    /// After N beats with a perfect-match pose, cumulative score equals N * 1.0.
+    #[test]
+    fn score_accumulation_equals_sum_of_beat_scores() {
+        let plugin = DancePlugin::new(test_config());
+        let mut state = plugin.init_state();
+
+        // Frame that perfectly matches the current target (ARMS_UP is pose index 0)
+        let perfect_frame = make_frame(|i| PoseKeypoint {
+            x: poses::ARMS_UP.keypoints[i].x,
+            y: poses::ARMS_UP.keypoints[i].y,
+            z: 0.0,
+            visibility: 1.0,
+        });
+
+        let mut f0: VecDeque<PoseFrame> = VecDeque::new();
+        f0.push_back(perfect_frame.clone());
+        let mut f1: VecDeque<PoseFrame> = VecDeque::new();
+        f1.push_back(perfect_frame.clone());
+
+        // Lock round start at tick 1
+        plugin.on_tick(&make_ctx(1, &f0, &f1, false), &mut *state);
+
+        let n_beats = 4u64;
+        for beat in 1..=n_beats {
+            let tick = 1 + beat * BEAT_INTERVAL;
+            plugin.on_tick(&make_ctx(tick, &f0, &f1, false), &mut *state);
+        }
+
+        let s = state.downcast_ref::<DanceState>().unwrap();
+        assert_eq!(s.beats_scored, n_beats, "beats_scored must equal n_beats");
+        // Each beat: player scores against the target. With a perfect frame,
+        // each beat score ≈ 1.0, so cumulative ≈ n_beats.
+        assert!(
+            s.scores[0] > (n_beats as f64) * 0.9,
+            "cumulative score for slot0 must be close to {}, got {}",
+            n_beats,
+            s.scores[0]
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Task 4: Beat clock — on_tick advances beat at expected frame rate
+    // -----------------------------------------------------------------------
+
+    /// The beat clock must advance exactly once per BEAT_INTERVAL ticks.
+    /// After 3 beats (ticks 1, 61, 121, 181 with round start at 1),
+    /// beats_scored must be 3.
+    #[test]
+    fn beat_clock_advances_at_correct_frame_rate() {
+        let plugin = DancePlugin::new(test_config());
+        let mut state = plugin.init_state();
+        let (f0, f1) = empty_frames();
+
+        // Tick 1: round starts, beats_scored = 0
+        plugin.on_tick(&make_ctx(1, &f0, &f1, false), &mut *state);
+        let s0 = state.downcast_ref::<DanceState>().unwrap();
+        assert_eq!(s0.beats_scored, 0, "no beats at tick 1");
+
+        // Tick 61: elapsed = 60 = 1 * BEAT_INTERVAL → beats_scored = 1
+        plugin.on_tick(&make_ctx(61, &f0, &f1, false), &mut *state);
+        let s1 = state.downcast_ref::<DanceState>().unwrap();
+        assert_eq!(s1.beats_scored, 1, "one beat after 60 ticks");
+
+        // Tick 121: elapsed = 120 = 2 * BEAT_INTERVAL → beats_scored = 2
+        plugin.on_tick(&make_ctx(121, &f0, &f1, false), &mut *state);
+        let s2 = state.downcast_ref::<DanceState>().unwrap();
+        assert_eq!(s2.beats_scored, 2, "two beats after 120 ticks");
+
+        // Tick 62 (between beats 1 and 2) does NOT fire another beat
+        // We already passed it; verify that tick 100 (between beats 1 and 2) is inert
+        let mut state2 = plugin.init_state();
+        plugin.on_tick(&make_ctx(1, &f0, &f1, false), &mut *state2);
+        plugin.on_tick(&make_ctx(100, &f0, &f1, false), &mut *state2); // elapsed=99, not a multiple of 60
+        let sx = state2.downcast_ref::<DanceState>().unwrap();
+        assert_eq!(sx.beats_scored, 0, "tick 100 (elapsed=99) must not fire a beat");
+    }
+
+    // -----------------------------------------------------------------------
     // spectator_snapshot_includes_game_type
     // -----------------------------------------------------------------------
     #[test]
