@@ -278,8 +278,8 @@ button { font: inherit; }
   transition: width 100ms linear;
 }
 
-.hp-fill-p1 { left: 0;  background: var(--accent); }
-.hp-fill-p2 { right: 0; background: var(--accent-p2); }
+.hp-fill-p1 { inset-inline-start: 0; background: var(--accent); }
+.hp-fill-p2 { inset-inline-end: 0;   background: var(--accent-p2); }
 
 .hp-fill.pulse {
   animation: hp-pulse 650ms ease-in-out infinite;
