@@ -132,8 +132,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — `GamePlugin::game_type()` trait method; `RoomHandle.game_type`; `MsgJoined.game_type`; spectator snapshot includes game_type; dance calibration skip in engine
-- [ ] 07-02-PLAN.md — `MsgDanceBeat` and `MsgDanceScore` in `shared/protocol.ts`; dance spectator snapshot message (beat + scores); protocol golden-file update
+- [x] 07-01-PLAN.md — `GamePlugin::game_type()` trait method; `RoomHandle.game_type`; `MsgJoined.game_type`; spectator snapshot includes game_type; dance calibration skip in engine
+- [x] 07-02-PLAN.md — `MsgDanceBeat` and `MsgDanceScore` in `shared/protocol.ts`; dance spectator snapshot message (beat + scores); protocol golden-file update
 
 ### Phase 8: Dance UX Design
 **Goal**: DESIGN.md fully covers the dance game experience; both game modes have a documented visual language before a pixel of dance UI is implemented
