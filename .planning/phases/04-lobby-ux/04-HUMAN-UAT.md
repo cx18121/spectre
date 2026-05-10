@@ -1,5 +1,5 @@
 ---
-status: partial
+status: testing
 phase: 04-lobby-ux
 source: [04-VERIFICATION.md]
 started: 2026-05-05T00:00:00Z
@@ -8,7 +8,11 @@ updated: 2026-05-05T00:00:00Z
 
 ## Current Test
 
-[awaiting human testing]
+number: 1
+name: Game picker selection enables Create Room
+expected: |
+  Click BOXING tile → tile gains crimson border/background; Create Room button changes from `opacity: 0.5; pointer-events: none` to fully clickable with accent border. Same for DANCE (steel-blue accent).
+awaiting: user response
 
 ## Tests
 

@@ -16,3 +16,4 @@ CLAUDE.md
 AGENTS.md
 docs/agents/
 engine/target/
+.playwright-mcp/
