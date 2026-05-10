@@ -54,26 +54,45 @@ this phase's spacing contract:
 - Beat indicator bar height: 4px (fixed functional size — on the 4px grid)
 - Match-end stats grid: 20px column padding (existing `.match-stats-col` — inherited, not introduced by Phase 9)
 
+**Locked legacy value (not a spacing token):** The `.hud-names` grid `gap: 14px` is an
+inherited value from the boxing HUD. It is not on the 8-point scale and must not be
+treated as a reusable spacing token. Phase 9 reuses this value unchanged for visual
+parity with the boxing HUD layout; do not apply it to any other element.
+
 Source: `DESIGN.md §Spacing`, `overlay/src/index.css`.
 
 ---
 
 ## Typography
 
-All from the existing type scale in `DESIGN.md §Typography`. No new size tokens are needed for Phase 9. The formal declared scale is four sizes.
+Two declared weights only: **900** (display / scores / labels) and **700** (secondary / body).
+
+Achafont is a distinct font family used for the display register. Its internal weight (950)
+is not declared as a separate weight token — Achafont itself is the differentiator. When
+rendered at `--type-display`, the browser uses Achafont's native weight. No weight token
+is needed alongside a font-family switch.
+
+All from the existing type scale in `DESIGN.md §Typography`. No new size tokens are needed
+for Phase 9. The formal declared scale is four sizes.
 
 | Role | Token | Size | Weight | Letter-spacing | Line Height | Use |
 |------|-------|------|--------|----------------|-------------|-----|
-| Display | `--type-display` | `clamp(72px, 15vw, 200px)` | 950 | 0 | Round flash headline (Achafont); match-end large scores and round flash map to this token's scale |
-| Hero | `--type-hero` | `clamp(32px, 6vw, 88px)` | 900 | 0 | Match end title (Achafont) |
-| Score / Timer | `--type-hud-timer` | 36px | 900 | 0.02em | Dance score numbers (Inter) — reuses existing timer token |
-| Label / Small | `--type-label` | 12px | 800 (label) / 700 (small) | 0.1em (label) / 0.06em (small) | HUD labels, beat count label, "WINNER" label, status pills, sublabels — differentiated by weight and letter-spacing only |
+| Display | `--type-display` | `clamp(72px, 15vw, 200px)` | — (Achafont native) | 0 | — | Round flash headline (Achafont); match-end large scores and round flash map to this token's scale |
+| Hero | `--type-hero` | `clamp(32px, 6vw, 88px)` | — (Achafont native) | 0 | — | Match end title (Achafont) |
+| Score / Timer | `--type-hud-timer` | 36px | 900 | 0.02em | — | Dance score numbers (Inter) — reuses existing timer token |
+| Label / Small | `--type-label` | 12px | 900 (label) / 700 (small) | 0.1em (label) / 0.06em (small) | — | HUD labels, beat count label, "WINNER" label, status pills, sublabels — differentiated by letter-spacing only, not by a distinct weight |
+
+Weight rules:
+- **Inter 900:** score numbers, "WINNER" label, player labels ("P1"/"P2"), match-end large scores (when rendered via Inter at smaller sizes). Highest visual priority.
+- **Inter 700:** beat count label, "vs" separator, round-end subscores, small secondary labels. Secondary visual priority.
+- **800 is not declared.** Any element previously specified at 800 uses 900 instead; visual distinction is achieved through letter-spacing differences (0.1em vs 0.06em), not weight.
+- **Achafont display register:** font-family `'Achafont'` applied at `--type-display` and `--type-hero`. No Inter weight token is declared alongside Achafont — the font-family switch is the full differentiator.
 
 Token mapping for dance-specific display sizes:
 
 - **Match-end large scores (`clamp(48px, 8vw, 96px)`):** rendered as a `--type-display` variant (same Achafont display register, clamped smaller). Maps to `--type-display`.
 - **Round flash headline (`clamp(52px, 10vw, 130px)`):** inherited from `.round-flash` — maps to `--type-display` variant. Style unchanged; copy changes only.
-- **Round end subscores (18px):** rendered at `--type-hud-timer` weight (Inter 700) but at 18px — treated as a `--type-hud-timer` variant for implementation. No new size token declared.
+- **Round end subscores (18px):** rendered at Inter 700 but at 18px — treated as a `--type-hud-timer` variant for implementation. No new size token declared.
 
 Dance-specific typography details:
 
@@ -85,7 +104,7 @@ Dance-specific typography details:
 - **Dance match end — "WINNER" label:** Inter 900, 12px, letter-spacing 0.14em, uppercase, winner's accent color. Maps to `--type-label`.
 - **Dance match end — player labels ("P1" / "P2"):** Inter 900, 12px, letter-spacing 0.1em, `--text-secondary`. Maps to `--type-label`.
 - **Round end subscores:** Inter 700, 18px, `--text-secondary`. Format: `P1: 11.7  P2: 9.2`. Implemented as `--type-hud-timer` variant — no new token.
-- **Round flash headline (dance):** Achafont 950, `clamp(52px, 10vw, 130px)` — inherited from `.round-flash`. Maps to `--type-display`. Copy changes only; style unchanged.
+- **Round flash headline (dance):** Achafont, `clamp(52px, 10vw, 130px)` — inherited from `.round-flash`. Maps to `--type-display`. Copy changes only; style unchanged.
 
 Typeface rules:
 - Achafont: round flash display only. Never used for functional information (scores, labels, copy).
@@ -136,6 +155,9 @@ Sibling to `HudLayer`. Renders inside the same `.hud-layer` / `.hud-band` shell.
 
 **Row 1 — Names and Beat Indicator:**
 Layout: `display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 14px` — same as boxing `.hud-names`.
+
+Note: `gap: 14px` is a locked legacy value inherited from boxing `.hud-names`. It is not a
+reusable spacing token and must not be used for any other element spacing in Phase 9.
 
 - P1 column: "P1" — Inter 900, 12px, letter-spacing 0.1em, uppercase, `--text-primary`. Left-aligned. No win dots.
 - P2 column: "P2" — same spec, right-aligned. No win dots.
@@ -202,10 +224,16 @@ Prohibited: "WINS", "KO", "TIME", any damage or HP reference.
 
 New content within the existing `.match-end-overlay` shell. Same background treatment: `oklch(5% 0.005 22 / 0.78)`, Level 3 elevation.
 
+**Primary focal point:** The winner's score number rendered at `clamp(48px, 8vw, 96px)` in
+`--accent-bright` (P1) or `--accent-p2-bright` (P2). This is the largest, most chromatic
+element on screen. All other elements — loser score, "WINNER" label, player labels — recede
+against it. The executor must ensure no other element on the match-end screen competes with
+this focal point in size or chroma.
+
 Layout (top to bottom, centred):
 1. "WINNER" label — Inter 900, 12px, letter-spacing 0.14em, uppercase. Color: `--accent-bright` if P1 wins, `--accent-p2-bright` if P2 wins. Omit / replace with "TIED" (no accent highlight) on tie.
 2. Score row: two large score numbers side by side with "vs" separator.
-   - Winner score: Inter 900, `clamp(48px, 8vw, 96px)`, tabular-nums. Color: `--accent-bright` (P1) or `--accent-p2-bright` (P2). Format: one decimal. Maps to `--type-display`.
+   - Winner score: Inter 900, `clamp(48px, 8vw, 96px)`, tabular-nums. Color: `--accent-bright` (P1) or `--accent-p2-bright` (P2). Format: one decimal. Maps to `--type-display`. **This is the focal point.**
    - "vs" separator: Inter 700, 16px, `--text-secondary`, centred.
    - Loser score: Inter 900, `clamp(48px, 8vw, 96px)`, tabular-nums, `--text-secondary`. Maps to `--type-display`.
 3. Player labels below each score: Inter 900, 12px, letter-spacing 0.1em, `--text-secondary`. "P1" under winner, "P2" under loser (or left/right positionally).
@@ -369,4 +397,5 @@ No third-party component registries. All UI is hand-rolled React + Pixi.js using
 
 *Generated: 2026-05-10*
 *Revised: 2026-05-10 — fixed Dimension 4 (typography scale reduced to 4 sizes) and Dimension 5 (spacing exceptions reframed as inherited, not Phase 9 introductions)*
+*Revised: 2026-05-10 — fixed Dimension 4 BLOCK (collapsed to 2 declared weights: 900 and 700; Achafont treated as font-family variant, not weight token; dropped weight 800); added focal point declaration for dance match end; annotated .hud-names 14px gap as locked legacy value*
 *Phase: 9 — dance-frontend*
