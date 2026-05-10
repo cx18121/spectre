@@ -17,7 +17,7 @@ Six phases carry the engine from first-principles Rust rewrite through a clean p
 - [x] **Phase 5: Mobile Connection UX** - Fast-join (QR-linked one-tap screen); hide technical server URL field when params are prefilled; better error messages
 - [x] **Phase 6: Overlay Fidelity** - Restore Achafont; close all DESIGN.md spec gaps in HUD, commentary bar, and match-end screen
 - [ ] **Phase 7: Dance Engine + Protocol** - `game_type` propagated through `MsgJoined` and spectator snapshot; dance calibration skip; `MsgDanceBeat`/`MsgDanceScore` TypeScript types
-- [ ] **Phase 8: Dance UX Design** - DESIGN.md dance section (score display, beat indicator, target pose spec, match end); PRODUCT.md two-mode update
+- [x] **Phase 8: Dance UX Design** - DESIGN.md dance section (score display, beat indicator, target pose spec, match end); PRODUCT.md two-mode update
 - [ ] **Phase 9: Dance Frontend** - Game-type-aware overlay HUD; dance score/beat display; target pose skeleton silhouette in Pixi.js; dance match end screen; mobile calibration skip
 
 ## Phase Details
@@ -146,7 +146,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 08-01-PLAN.md — DESIGN.md dance section (score display spec, beat countdown, target skeleton style, round/match end); PRODUCT.md two-mode tone definition
+- [x] 08-01-PLAN.md — DESIGN.md dance section (score display spec, beat countdown, target skeleton style, round/match end); PRODUCT.md two-mode tone definition
 
 ### Phase 9: Dance Frontend
 **Goal**: The overlay renders a purpose-built dance HUD; spectators see target pose silhouettes updating each beat; the mobile app skips calibration for dance; the match end screen shows scores not KO
