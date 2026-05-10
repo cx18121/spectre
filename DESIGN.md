@@ -268,3 +268,65 @@ Structure (top to bottom within the centre column):
    - No border-radius. No glow.
 
 Color rationale: --text-secondary for fill is intentionally neutral — it must not compete with the target pose skeleton silhouette rendered in the Pixi canvas below.
+
+### Target Pose Skeleton
+
+The target pose skeleton is a ghost silhouette rendered in the Pixi.js canvas layer (PixiCanvas). It shows the ideal body position the player should match for the current beat.
+
+Position and scale:
+- Rendered at the horizontal centre of the canvas.
+- Vertical position aligned with the live player silhouettes (same Y-origin, human scale).
+- Scale matches the player silhouettes -- the ghost body should appear life-size alongside the live players.
+- Centred in the gap between the two player silhouettes; does not overlap either player's canvas zone.
+
+Visual style (DDES-03):
+- Keypoints: filled circles, color --text-dim, at 40% opacity.
+- Bone lines: stroked lines connecting standard pose keypoints, color --text-dim, at 40% opacity.
+- No fill color gradient, no accent color. Ghost-only appearance.
+- Do not use --text-secondary for the skeleton -- --text-dim is dimmer and avoids competing with the beat indicator bar.
+
+Wire data:
+The skeleton is drawn from MsgDanceBeat.target_pose: an array of [x, y, z, visibility] tuples (one per keypoint, hip-centred Y-up normalised coordinates). Only keypoints with visibility >= 0.5 should be drawn. Bone lines connect standard MediaPipe Pose landmark indices.
+
+Transition on beat swap:
+On each dance_beat event the old target pose fades out and the new pose fades in:
+1. Fade-out: opacity 40% to 0%, duration 150ms, easing ease-out-quart. (Same as UI overlays disappear in the Motion section -- applied to the Pixi Graphics object alpha, not a CSS element.)
+2. After fade-out completes: update the skeleton geometry to the new target_pose keypoints.
+3. Fade-in: opacity 0% to 40%, duration 150ms, easing ease-in.
+4. Total swap time: 300ms.
+
+Rendering note for Phase 9: The skeleton is a static Pixi Graphics object redrawn from keypoints. Animate opacity via gsap (already used in the overlay) or a manual requestAnimationFrame ticker. Animate the whole Graphics object alpha -- do not animate individual keypoints.
+
+### Dance Round End
+
+The dance round end screen reuses the .round-flash overlay component from RoundOverlay.tsx with different copy. No new component is required.
+
+Copy format:
+- Winner determined: "ROUND N -- P1 LEADS" or "ROUND N -- P2 LEADS" (N is the round number, winning player label used).
+- Tie: "ROUND N -- TIED"
+- No "WINS", no "KO", no "TIME" -- boxing vocabulary is prohibited in dance round end copy.
+
+Below the headline: Render both cumulative scores in --text-secondary, Inter 700 18px. Format: "P1: 11.7  P2: 9.2". Same horizontal layout as the HUD score row -- P1 left, P2 right.
+
+Timing and style: Identical to boxing round end -- .round-flash Achafont display, existing 2200ms visibility window, existing motion spec. Only the text content changes.
+
+Prohibited elements: No HP bar. No win dots. No "KO" text. No "TIME" text. No reference to damage.
+
+### Dance Match End
+
+The dance match end screen replaces the boxing .match-end-overlay for dance rooms. It is a new layout within the same overlay mechanism.
+
+Layout (top to bottom):
+1. "WINNER" label -- Inter 900, 12px, letter-spacing 0.14em, uppercase, color matches winner's accent (--accent for P1, --accent-p2 for P2).
+2. Score row -- two large score numbers side by side with "vs" separator:
+   - Winner's score: Inter 900, clamp(48px, 8vw, 96px), accent color (--accent or --accent-p2 based on winner slot). Large size is the primary visual signal.
+   - "vs" separator: Inter 700, 16px, --text-secondary, centred.
+   - Loser's score: Inter 900, clamp(48px, 8vw, 96px), --text-secondary (de-emphasised, not hidden).
+3. Player labels below each score: "P1" / "P2" -- Inter 900 12px letter-spacing 0.1em --text-secondary.
+4. Rematch button (unchanged from boxing -- same .rematch-btn style).
+
+Winner determination: Highest cumulative score at match end wins. Tie: display "TIED" instead of "WINNER", no accent highlight on either score.
+
+Prohibited elements: No "K.O." text. No HP bars. No damage or hits stats. No reference to rounds won count. Only data shown is final scores and the winner declaration.
+
+Elevation and background: Same match-end-overlay background treatment as boxing (Level 3 elevation, --bg-deep at high opacity). The spec does not change the overlay shell -- only its content.
