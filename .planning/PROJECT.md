@@ -37,7 +37,7 @@ The engine must make it trivially easy to add a new pose-based game by implement
 - [ ] Room page (`/rooms/{code}`): P1/P2/Overlay QR cards with prefilled URLs — Phase 4
 - [ ] Mobile fast-join: QR-prefilled params → one-tap connection screen — Phase 5
 - [x] Overlay fidelity: Achafont restored, all DESIGN.md spec gaps closed — Phase 6 (complete 2026-05-10)
-- [ ] Dance engine wiring: `game_type` in `MsgJoined`, dance calibration skip, `MsgDanceBeat`/`MsgDanceScore` TypeScript types — Phase 7
+- [x] Dance engine wiring: `game_type` in `MsgJoined`, dance calibration skip, `MsgDanceBeat`/`MsgDanceScore` TypeScript types — Phase 7 (complete 2026-05-10)
 - [ ] Dance UX design: DESIGN.md dance section, PRODUCT.md two-mode update — Phase 8
 - [ ] Dance frontend: game-type-aware overlay HUD, target pose skeleton in Pixi.js, dance match end, mobile calibration skip — Phase 9
 
