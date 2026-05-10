@@ -85,9 +85,12 @@
 ### Overlay Fidelity
 
 - [ ] **OVERLAY-01**: Achafont restored via `@font-face` from `overlay/public/fonts/Achafont.ttf` (recovered from git history); used for round flash, countdown, KO text, and match end title as specified in DESIGN.md
-- [ ] **OVERLAY-02**: Commentary bar matches DESIGN.md exactly: `--bg-mid` at 94% opacity, `backdrop-filter: blur(6px)`, 1px `--accent` at 35% opacity border, SHADOW tag style, blinking cursor
-- [ ] **OVERLAY-03**: HP bar track has 1px `--gold` border per DESIGN.md; HUD structural elements use correct elevation/border spec (Level 1: `--gold` 20% opacity + inset highlight)
-- [ ] **OVERLAY-04**: All remaining DESIGN.md component gaps verified and closed: win dots snap behavior, HP bar direction (P2 right-to-left), low-HP pulse animation, button hover/active states
+- [x] **OVERLAY-02
+**: Commentary bar matches DESIGN.md exactly: `--bg-mid` at 94% opacity, `backdrop-filter: blur(6px)`, 1px `--accent` at 35% opacity border, SHADOW tag style, blinking cursor
+- [x] **OVERLAY-03
+**: HP bar track has 1px `--gold` border per DESIGN.md; HUD structural elements use correct elevation/border spec (Level 1: `--gold` 20% opacity + inset highlight)
+- [x] **OVERLAY-04
+**: All remaining DESIGN.md component gaps verified and closed: win dots snap behavior, HP bar direction (P2 right-to-left), low-HP pulse animation, button hover/active states
 
 ### Dance Engine + Protocol Wiring
 
