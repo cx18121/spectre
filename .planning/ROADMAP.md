@@ -18,7 +18,7 @@ Six phases carry the engine from first-principles Rust rewrite through a clean p
 - [x] **Phase 6: Overlay Fidelity** - Restore Achafont; close all DESIGN.md spec gaps in HUD, commentary bar, and match-end screen
 - [ ] **Phase 7: Dance Engine + Protocol** - `game_type` propagated through `MsgJoined` and spectator snapshot; dance calibration skip; `MsgDanceBeat`/`MsgDanceScore` TypeScript types
 - [x] **Phase 8: Dance UX Design** - DESIGN.md dance section (score display, beat indicator, target pose spec, match end); PRODUCT.md two-mode update
-- [ ] **Phase 9: Dance Frontend** - Game-type-aware overlay HUD; dance score/beat display; target pose skeleton silhouette in Pixi.js; dance match end screen; mobile calibration skip
+- [x] **Phase 9: Dance Frontend** - Game-type-aware overlay HUD; dance score/beat display; target pose skeleton silhouette in Pixi.js; dance match end screen; mobile calibration skip
 
 ## Phase Details
 
@@ -161,10 +161,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — `useSpectatorSocket`: store `game_type`; handle `dance_beat` / `dance_score` / dance snapshot; game-type routing in `App.tsx` render branch
-- [ ] 09-02-PLAN.md — `DanceHud` component: P1/P2 score bars, beat counter (N / 16), beat countdown visual; wired to `useSpectatorSocket` dance state
-- [ ] 09-03-PLAN.md — Target pose skeleton in Pixi.js: render static keypoint skeleton from `dance_beat.target_pose`; per-beat fade-out / fade-in swap animation; positioned alongside live silhouettes
-- [ ] 09-04-PLAN.md — Dance match end screen (final scores, winner, rematch); mobile calibration skip when `game_type === "dance"`
+- [x] 09-01-PLAN.md — `useSpectatorSocket`: store `game_type`; handle `dance_beat` / `dance_score` / dance snapshot; game-type routing in `App.tsx` render branch
+- [x] 09-02-PLAN.md — `DanceHud` component: P1/P2 score bars, beat counter (N / 16), beat countdown visual; wired to `useSpectatorSocket` dance state
+- [x] 09-03-PLAN.md — Target pose skeleton in Pixi.js: render static keypoint skeleton from `dance_beat.target_pose`; per-beat fade-out / fade-in swap animation; positioned alongside live silhouettes
+- [x] 09-04-PLAN.md — Dance match end screen (final scores, winner, rematch); mobile calibration skip when `game_type === "dance"`
 
 ## Progress
 
@@ -184,4 +184,4 @@ Phase 9 depends on both Phase 7 and Phase 8.
 | 6. Overlay Fidelity | 0/2 | Not started | - |
 | 7. Dance Engine + Protocol | 0/2 | Not started | - |
 | 8. Dance UX Design | 0/1 | Not started | - |
-| 9. Dance Frontend | 0/4 | Not started | - |
+| 9. Dance Frontend | 4/4 | Complete | 2026-05-10 |
