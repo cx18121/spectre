@@ -428,22 +428,16 @@ async fn handle_player(
     room_code: String,
     app: Arc<AppState>,
 ) {
-    use axum::extract::ws::Message;
+    use axum::extract::ws::{Message, CloseFrame};
     use tokio::sync::oneshot;
     use crate::room::RoomCmd;
     use crate::protocol::InboundMobileMsg;
 
     let (mut ws_sink, mut ws_stream) = socket.split();
 
-    // ENG-05: dedicated outbound Tokio task with bounded mpsc channel (capacity 32)
+    // ENG-05: channel created here (needed by PlayerConnect), but the outbound task is
+    // spawned after early-exit checks so ws_sink stays available for close-code delivery.
     let (player_tx, mut player_rx) = tokio::sync::mpsc::channel::<String>(32);
-    tokio::spawn(async move {
-        while let Some(msg) = player_rx.recv().await {
-            if ws_sink.send(Message::Text(msg.into())).await.is_err() {
-                break;
-            }
-        }
-    });
 
     // PROTO-01 / join-first: read the first message — must be MsgJoin.
     // Extract player_slot (1-indexed from client, convert to 0-indexed).
@@ -484,6 +478,10 @@ async fn handle_player(
                 "handle_player: room {} not found; rooms must be pre-created via POST /rooms",
                 room_code
             );
+            let _ = ws_sink.send(Message::Close(Some(CloseFrame {
+                code: 4004,
+                reason: "Room not found".into(),
+            }))).await;
             return;
         }
     };
@@ -508,10 +506,23 @@ async fn handle_player(
         Ok(Some(r)) => r,
         Ok(None) => {
             tracing::warn!("room {} slot {} already occupied", room_code, slot_idx + 1);
+            let _ = ws_sink.send(Message::Close(Some(CloseFrame {
+                code: 4000,
+                reason: "Slot already taken".into(),
+            }))).await;
             return;
         }
         Err(_) => return,
     };
+
+    // Connection confirmed — start outbound task now (moves ws_sink).
+    tokio::spawn(async move {
+        while let Some(msg) = player_rx.recv().await {
+            if ws_sink.send(Message::Text(msg.into())).await.is_err() {
+                break;
+            }
+        }
+    });
 
     tracing::info!("player {} connected to room {}", connect_result.slot + 1, room_code);
 
