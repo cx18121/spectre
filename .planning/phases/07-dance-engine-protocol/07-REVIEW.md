@@ -18,10 +18,10 @@ files_reviewed_list:
   - engine/engine-core/tests/fixtures/msg_dance_score.json
   - shared/protocol.ts
 findings:
-  critical: 4
-  warning: 4
-  info: 3
-  total: 11
+  critical: 2
+  warning: 6
+  info: 2
+  total: 10
 status: issues_found
 ---
 
@@ -34,28 +34,24 @@ status: issues_found
 
 ## Summary
 
-The phase 07 implementation adds a DancePlugin behind the existing GamePlugin trait, extends the wire protocol with `MsgDanceBeat` and `MsgDanceScore`, and wires two-player and solo dance rooms through the existing room lifecycle. The architecture is generally sound — the plugin trait design, calibration bypass, beat clock, and cosine-similarity scorer are all coherent.
-
-Four blockers were found: the most critical is that `GameEvent::Broadcast` in `dispatch_events` only sends to the spectator broadcast channel (`game_tx`), not to connected players' outbound channels, which means `dance_beat` and `dance_score` events are never delivered to mobile clients. The second blocker is a missing `round_start_time.is_none()` guard on the two-player dance connect path, causing a spurious match restart when player 2 reconnects mid-match. The third blocker is a missing `wins` field in the TypeScript `MsgGameState` interface while the Rust struct includes it. The fourth blocker is a hardcoded HP value of `800` in `handle_round_over` that ignores the plugin's configured starting HP.
+This phase introduces `MsgDanceBeat`, `MsgDanceScore`, the `DancePlugin` implementation, a `game_type` field on `MsgJoined`, and the `spectator_snapshot` plumbing. The protocol structs, the roundtrip tests, and the TypeScript hand-maintained types are largely coherent. However, two blockers were found: dance beat/score messages are delivered to spectators only and never reach mobile players, and the two-player dance connect path has no guard against restarting a match that is already in progress. Six additional warnings cover a hardcoded HP reset value, a hardcoded max-HP constant in commentary, a `wins` field missing from the TypeScript type, a bigint/number type divergence in auto-generated bindings, a dead protocol struct that is never sent, and an immediately-discarded downcast pattern.
 
 ---
 
 ## Critical Issues
 
-### CR-01: `GameEvent::Broadcast` Never Reaches Connected Players
+### CR-01: `GameEvent::Broadcast` never reaches mobile players — dance beats and scores are lost
 
 **File:** `engine/engine-core/src/game_loop.rs:235-238`
 
-**Issue:** In `dispatch_events`, the `GameEvent::Broadcast` arm sends only to `state.game_tx` — the spectator broadcast channel. Connected players each have a separate `mpsc::Sender<String>` in `state.players[slot].tx` that is not written. As a result, every `dance_beat` and `dance_score` message emitted by `DancePlugin::on_tick` is delivered to spectators and the overlay but never to the mobile clients (players). Players receive no beat announcements and no score updates during an entire dance match.
-
-The `broadcast_all` helper in `room.rs:154-161` correctly fans out to both `game_tx` and each player's `tx`, but it is not used here.
+**Issue:** `dispatch_events` handles `GameEvent::Broadcast` by writing only to `state.game_tx` (the slow-path broadcast channel). That channel is subscribed exclusively by spectator WebSocket handlers (`handle_spectator` in `main.rs`). Mobile player connections use a dedicated `mpsc::Sender<String>` (`player_tx`) that is never subscribed to `game_tx`. The dance plugin emits every `dance_beat` and `dance_score` event as `GameEvent::Broadcast`, so mobile players never receive the target pose or live scores during a match. The overlay (spectator) sees the messages; the players do not.
 
 **Fix:**
 ```rust
-// game_loop.rs dispatch_events — replace the Broadcast arm:
 GameEvent::Broadcast { payload } => {
     if let Ok(json) = serde_json::to_string(&payload) {
         let _ = state.game_tx.send(json.clone());
+        // Also deliver to connected players (dance_beat / dance_score must reach mobile)
         for slot in &state.players {
             if let Some(tx) = &slot.tx {
                 let _ = tx.try_send(json.clone());
@@ -64,118 +60,57 @@ GameEvent::Broadcast { payload } => {
     }
 }
 ```
-Alternatively, move `broadcast_all` into `game_loop.rs` (or expose it from `room.rs`) and call it here.
 
 ---
 
-### CR-02: Two-Player Dance Connect Has No `round_start_time.is_none()` Guard
+### CR-02: Two-player dance connect path restarts an already-running match when P2 joins late
 
 **File:** `engine/engine-core/src/room.rs:267-298`
 
-**Issue:** The `PlayerConnect` handler has two code paths for starting a dance match without calibration. The solo path (line 299) correctly guards against re-starting with `state.round_start_time.is_none()`. The two-player path (lines 267-298) has no such guard.
-
-If player 2 disconnects during an active dance match and reconnects, both conditions at line 267 (`state.players[0].connected && state.players[1].connected`) become true again. The handler then unconditionally overwrites `reference_velocity` for both players and sets `state.round_start_time = Some(Instant::now())`, restarting the match mid-round.
+**Issue:** When only player 1 connects to a dance room, the solo-mode path (line 299) fires, starts the match (`round_start_time = Some(Instant::now())`), and sets `solo_mode = true`. When player 2 subsequently connects, the outer branch at line 267 (`players[0].connected && players[1].connected`) fires unconditionally — there is no `round_start_time.is_none()` guard. This second execution overwrites `round_start_time` with a fresh `Instant::now()` (resetting the round clock mid-game), resets both `reference_velocity` fields to `Some(0.0)`, flips `solo_mode` to `false` without resetting dance plugin state (corrupting the in-flight beat window), and sends a duplicate `match_start` and `round_start` to player 1. The solo-path at line 299 already carries the correct guard. The two-player path must be updated to match:
 
 **Fix:**
 ```rust
-// room.rs — add the guard to the two-player dance branch:
-if state.players[0].connected && state.players[1].connected {
+if state.players[0].connected && state.players[1].connected
+    && state.round_start_time.is_none()   // add this guard
+{
     if state.plugin.requires_calibration() {
-        // ... calibration_start path unchanged
-    } else if state.round_start_time.is_none() {  // <-- add this guard
-        state.players[0].reference_velocity = Some(0.0);
-        state.players[1].reference_velocity = Some(0.0);
-        state.solo_mode = false;
-        // ... match_start + round_start broadcast unchanged
-        state.round_start_time = Some(Instant::now());
+        // ... send calibration_start
+    } else {
+        // ... dance two-player start
     }
 }
 ```
 
 ---
 
-### CR-03: `MsgGameState` Missing `wins` Field in TypeScript Protocol
+## Warnings
 
-**File:** `shared/protocol.ts:116-125`
-
-**Issue:** The Rust `MsgGameState` struct (`engine/engine-core/src/protocol.rs:256-271`) includes a `wins: (u32, u32)` field added for FIX-02. The TypeScript interface at `shared/protocol.ts:116` is missing this field entirely:
-
-```typescript
-// current — wins is absent:
-export interface MsgGameState {
-  type: "game_state";
-  tick: number;
-  hp: [number, number];
-  poses: [PoseKeypoint[], PoseKeypoint[]];
-  recent_hits: HitEvent[];
-  high_latency: boolean;
-  remaining_time: number;
-  max_wins: number;
-}
-```
-
-Any TypeScript overlay code that reads `MsgGameState` will see `wins` as `undefined`, causing the win counter overlay to show nothing (or a stale value after reconnect). The protocol roundtrip test at `tests/protocol_roundtrip.rs:84-86` asserts `wins` is present in the serialized JSON, confirming the Rust side sends it, but the TypeScript consumer cannot type-safely read it.
-
-**Fix:**
-```typescript
-export interface MsgGameState {
-  type: "game_state";
-  tick: number;
-  hp: [number, number];
-  wins: [number, number];   // add — FIX-02: win counter survives reconnect
-  poses: [PoseKeypoint[], PoseKeypoint[]];
-  recent_hits: HitEvent[];
-  high_latency: boolean;
-  remaining_time: number;
-  max_wins: number;
-}
-```
-
----
-
-### CR-04: Hardcoded HP Reset `[800, 800]` in `handle_round_over` Ignores Plugin Config
+### WR-01: `handle_round_over` hardcodes HP reset to 800 regardless of plugin configuration
 
 **File:** `engine/engine-core/src/game_loop.rs:310`
 
-**Issue:** `handle_round_over` resets the engine-mirrored HP with the literal `state.hp = [800, 800]` when starting the next round. `RoomState` has no reference to the plugin config's starting HP. If a boxing room is created with a non-default `BoxingConfig { hp: 500, ... }`, the engine's `state.hp` is reset to `800` each round while `BoxingState.hp` (managed by the plugin) is correctly reset to `500` by `on_round_reset`. The divergence means:
+**Issue:** After a round ends (non-match-over path), the engine resets `state.hp = [800, 800]`. This value is hardcoded and ignores the `BoxingConfig.hp` field. A boxing room created with a different starting HP (e.g. `hp: 500` in test or a future variant) will have its engine-side HP snapshot reset to 800 at round boundaries. The boxing plugin's own `BoxingState.hp` is correctly reset via `on_round_reset` using `self.config.hp`, but `RoomState.hp` (used in spectator snapshots and `MsgGameState`) diverges.
 
-- `MsgGameState.hp` broadcasts incorrect HP values for rounds 2+ when non-default HP is used.
-- `MsgRoundEnd.final_hp` at the start of the next round shows `800` instead of the configured value.
-- The boxing test config in `room.rs:418` uses `hp: 800` so the bug is masked there.
-
-The `RoomState` struct should store the starting HP, or the reset should not touch `state.hp` and let the plugin's `on_round_reset` be the sole source of truth (with the engine reading HP from the plugin state snapshot). The simplest fix:
-
-**Fix:**
+**Fix:** Store the initial HP on `RoomState` at creation time and use it on reset:
 ```rust
-// room.rs RoomState — add field:
-pub starting_hp: u32,
+// Add to RoomState:
+pub initial_hp: u32,
 
-// room.rs RoomState::new — initialize:
-starting_hp: 800, // default; callers with custom HP should pass config value
-
-// game_loop.rs handle_round_over — replace:
-state.hp = [state.starting_hp, state.starting_hp];
+// In handle_round_over replace line 310:
+state.hp = [state.initial_hp, state.initial_hp];
 ```
-Longer term, consider removing the engine-mirrored `hp` field entirely and having the plugin expose HP through `spectator_snapshot`.
 
 ---
 
-## Warnings
+### WR-02: `emit_commentary_hint` hardcodes `max_hp = 800.0` — percentage thresholds wrong for non-default HP configs
 
-### WR-01: `emit_commentary_hint` Uses Hardcoded `max_hp = 800.0` Independent of Config
+**File:** `engine/boxing-plugin/src/lib.rs:259`
 
-**File:** `engine/boxing-plugin/src/lib.rs:259-261`
+**Issue:** The commentary hint function computes `defender_hp_pct` and `attacker_hp_pct` using a hardcoded `800.0` denominator (the comment acknowledges this). For any boxing room using a non-800 HP value, the `low_hp` (≤25%) and `comeback` (<30%) thresholds fire at incorrect absolute HP values. The function signature does not receive `self` or the config.
 
-**Issue:** The `emit_commentary_hint` function computes `defender_hp_pct` and `attacker_hp_pct` against a hardcoded `max_hp = 800.0`. The comment acknowledges this: "Could use self.config.hp but fn doesn't have self; 800 is the spec value." If `BoxingConfig.hp` is set to any other value, commentary thresholds (low_hp at 25%, comeback at 30%) will fire at incorrect HP levels.
-
-**Fix:** Pass `config.hp` as a parameter from the `on_tick` caller:
+**Fix:**
 ```rust
-emit_commentary_hint(
-    &mut events, s, attacker_idx, defender_idx,
-    &h.region, dmg, ctx.tick_info.elapsed_secs,
-    self.config.hp,  // add
-);
-
 fn emit_commentary_hint(
     events: &mut Vec<GameEvent>,
     s: &mut BoxingState,
@@ -184,78 +119,83 @@ fn emit_commentary_hint(
     _region: &BodyRegion,
     damage: u32,
     elapsed: f64,
-    max_hp: u32,  // add
+    max_hp: u32,  // pass self.config.hp from caller
 ) {
-    let max_hp_f = max_hp as f64;
-    // ... use max_hp_f instead of 800.0
-```
-
----
-
-### WR-02: `dance_snapshot` Message Type Is Not Defined in TypeScript Protocol
-
-**File:** `shared/protocol.ts` (missing type), `engine/dance-plugin/src/lib.rs:207-219`
-
-**Issue:** `DancePlugin::spectator_snapshot` returns a `serde_json::Value` with `"type": "dance_snapshot"`. This message is forwarded to spectators via `broadcast::send_snapshot` when they connect during an active dance round. There is no corresponding TypeScript interface in `shared/protocol.ts`, and `"dance_snapshot"` is not a member of `InboundServerMsg` or `ServerMessage`. Any overlay code receiving this message will not be able to dispatch it by type.
-
-**Fix:** Add to `shared/protocol.ts`:
-```typescript
-export interface MsgDanceSnapshot {
-  type: "dance_snapshot";
-  beat: number;
-  scores: [number, number];
+    let max_hp = max_hp as f64;
+    // ...
 }
 ```
-And include it in `InboundServerMsg` and `ServerMessage` union types.
 
 ---
 
-### WR-03: `MsgPlayerDisconnected` Is Defined and Protocol-Tested but Never Sent
+### WR-03: `shared/protocol.ts` `MsgGameState` is missing the `wins` field
 
-**File:** `engine/engine-core/src/room.rs:374-394`
+**File:** `shared/protocol.ts:116-125`
 
-**Issue:** `MsgPlayerDisconnected` exists in `protocol.rs`, has a roundtrip fixture test, and is in `shared/protocol.ts`. However, the `RoomCmd::PlayerDisconnect` handler in `room.rs` never constructs or sends this message. Clients receive a `lobby_update` when a player disconnects but not a `player_disconnected` message. This breaks any mobile client or overlay logic that depends on the named event (e.g., showing a "Opponent disconnected" banner).
+**Issue:** The Rust `MsgGameState` struct includes `pub wins: (u32, u32)` (FIX-02, to prevent overlay win counter desync on reconnect). The hand-maintained TypeScript definition does not declare `wins`. Any TypeScript client accessing `msg.wins` receives `undefined` at runtime with no compile-time error. This silently breaks the FIX-02 overlay reconnect fix for TypeScript consumers using the typed interface.
 
-**Fix:** Add to the `PlayerDisconnect` arm in `handle_cmd`, before the lobby_update broadcast:
+**Fix:**
+```typescript
+export interface MsgGameState {
+  type: "game_state";
+  tick: number;
+  hp: [number, number];
+  wins: [number, number];  // add this field (FIX-02)
+  poses: [PoseKeypoint[], PoseKeypoint[]];
+  recent_hits: HitEvent[];
+  high_latency: boolean;
+  remaining_time: number;
+  max_wins: number;
+}
+```
+
+---
+
+### WR-04: Auto-generated bindings use `bigint` for `beat`/`total_beats`; `shared/protocol.ts` uses `number`
+
+**File:** `engine/engine-core/bindings/MsgDanceBeat.ts:3`, `engine/engine-core/bindings/MsgDanceScore.ts:3`
+
+**Issue:** `ts-rs` generates `beat: bigint` and `total_beats: bigint` (from Rust `u64`). The canonical `shared/protocol.ts` correctly uses `beat: number` and `total_beats: number`. A frontend importing from the bindings directory gets a type incompatibility: comparisons like `msg.beat === 0` fail silently (`0n !== 0`), and passing `beat` to a function expecting `number` is a TypeScript type error. The two files are in `engine/engine-core/bindings/` and should not be consumed by application code, but there is no marker or comment warning consumers away.
+
+**Fix:** Add `#[ts(type = "number")]` attribute on the `beat` and `total_beats` fields in `protocol.rs` so ts-rs generates `number`. Also add a file-level comment to the generated bindings stating they are not authoritative and `shared/protocol.ts` must be used instead.
+
+---
+
+### WR-05: `MsgPlayerDisconnected` is defined and tested but never constructed or sent
+
+**File:** `engine/engine-core/src/protocol.rs:163-168`
+
+**Issue:** The compiler confirms (`struct MsgPlayerDisconnected is never constructed` — visible in build artifact fingerprints) that this struct is dead code. The `PlayerDisconnect` room command clears the slot, logs, and broadcasts a `MsgLobbyUpdate`, but never sends a `player_disconnected` message to remaining clients. The struct, fixture (`msg_player_disconnected.json`), and roundtrip test (`protocol_roundtrip.rs:172-181`) all exist for a message that is never produced at runtime. Mobile clients expecting this message receive nothing when a player drops.
+
+**Fix:** Either implement the send in `room.rs` `PlayerDisconnect` handler:
 ```rust
-// Notify remaining player of the disconnect
-let disconnected_player = (slot + 1) as u8;
+// Send to the remaining connected player
+let remaining = 1 - slot;
 if let Ok(json) = serde_json::to_string(&MsgPlayerDisconnected {
     msg_type: "player_disconnected".to_string(),
-    player: disconnected_player,
+    player: (slot + 1) as u8,
 }) {
-    let opponent_idx = 1 - slot;
-    send_to_slot(state, opponent_idx, &json);
-    let _ = state.game_tx.send(json); // spectators
+    send_to_slot(state, remaining, &json);
 }
 ```
+Or remove the struct, fixture, and test as dead code.
 
 ---
 
-### WR-04: Multiple `RoundOver` Events in One Tick — Last One Wins, Earlier Ones Are Silently Dropped
+### WR-06: `on_player_join` and `on_player_leave` in `BoxingPlugin` obtain a mutable downcast then discard it
 
-**File:** `engine/engine-core/src/game_loop.rs:187, 215-217`
+**File:** `engine/boxing-plugin/src/lib.rs:204-213`
 
-**Issue:** `dispatch_events` collects deferred `RoundOver` events using `Option<Option<u8>>`. If a plugin emits more than one `RoundOver` in a single `on_tick` return (malformed plugin or edge case), only the last one is processed:
+**Issue:** Both handlers call `state.downcast_mut::<BoxingState>().expect("...")` but bind the result to `_`. The `.expect()` is a panic-guard against type mismatch, but the mutable borrow obtained is unused. This is misleading — it reads as if the handlers interact with state, and the pattern could encourage a future contributor to rely on the downcast existing. If type-assertion is the only goal, the pattern should be explicit.
 
+**Fix:**
 ```rust
-GameEvent::RoundOver { winner } => {
-    round_over_winner = Some(winner);  // overwrites previous
+fn on_player_join(&self, slot: u8, _state: &mut dyn Any) {
+    tracing::info!("boxing: player {} joined", slot + 1);
 }
-```
 
-For a well-behaved plugin this does not matter, but there is no assertion, warning, or documentation that emitting multiple `RoundOver` events is forbidden. A plugin bug (e.g., boxing KO fires at the same tick as time expiry) would silently drop one of the events. The `GamePlugin` trait docs say "Emit `RoundOver` at most once per round" but this is only enforced by the plugin, not the engine.
-
-**Fix:** Add a trace-level warning when a second `RoundOver` is seen in one tick:
-```rust
-GameEvent::RoundOver { winner } => {
-    if round_over_winner.is_some() {
-        tracing::warn!(
-            "room {}: multiple RoundOver events in one tick — keeping last",
-            state.code
-        );
-    }
-    round_over_winner = Some(winner);
+fn on_player_leave(&self, slot: u8, _state: &mut dyn Any) {
+    tracing::info!("boxing: player {} left", slot + 1);
 }
 ```
 
@@ -263,27 +203,27 @@ GameEvent::RoundOver { winner } => {
 
 ## Info
 
-### IN-01: `score_pose` Short-Circuits on Frame Length But Not on Target Length Zero
+### IN-01: `score_pose` early-returns 0.0 for frames with fewer than 33 keypoints with no log
 
-**File:** `engine/dance-plugin/src/lib.rs:237-239`
+**File:** `engine/dance-plugin/src/lib.rs:238-239`
 
-**Issue:** `score_pose` returns `0.0` early if `player_frame.keypoints.len() < target.len()`. If `target` is empty (a malformed `POSE_LIBRARY` entry with zero keypoints), the function proceeds into the loop, accumulates nothing, then hits the `n < 5` guard and returns `0.0`. This is safe but the early-exit comment ("not enough visible landmarks") is misleading since an empty target would produce the same result. Not a current defect given the pose library is static, but worth a guard.
-
----
-
-### IN-02: `OutboundMobileMsg` Union in TypeScript Includes Server-Only Types
-
-**File:** `shared/protocol.ts:46-52`
-
-**Issue:** The TypeScript `OutboundMobileMsg` type (messages sent from mobile to server) includes `MsgPong` which is a server-to-mobile message defined at line 65. `MsgPong` is the server's reply to a `MsgPing` and should never be sent by the mobile client. The union should be `InboundMobileMsg` (join, pose_frame, calibration_done, ping, pong) from the client perspective. As structured, `MsgPong` appearing in `OutboundMobileMsg` is semantically wrong — pong is mobile-to-server, but the naming and placement in the server-to-mobile section is confusing.
+**Issue:** `score_pose` returns `0.0` immediately if `player_frame.keypoints.len() < target.len()` (target is always 33). A malformed frame with 32 keypoints silently scores 0.0 for the entire beat without any log message, making it invisible in production traces. The downstream `n < 5` visibility guard would handle sparse data if the zip ran. Consider logging a debug warning or relaxing the guard to `zip` up to `min(len, 33)` and let the visibility check handle insufficient signal.
 
 ---
 
-### IN-03: Boxing `on_player_join` and `on_player_leave` Downcast State Then Immediately Discard It
+### IN-02: `beat_advances_target` test hardcodes expected wrap-around index `Some(0)` without deriving from `POSE_LIBRARY.len()`
 
-**File:** `engine/boxing-plugin/src/lib.rs:203-213`
+**File:** `engine/dance-plugin/src/lib.rs:390`
 
-**Issue:** Both `on_player_join` and `on_player_leave` downcast the state with `.expect(...)` and assign the result to `let _ = ...`, then only log. The downcast succeeds or panics — there is no use of the downcast value. The downcast exists solely as a type guard that will panic rather than silently proceed if the wrong state is passed. This is a valid defensive pattern, but the `let _ =` binding is misleading — it looks like the code intended to use the state and forgot to. Consider removing the downcast if no state mutation is needed, or adding a comment explaining the intent.
+**Issue:** The assertion `assert_eq!(s.current_target, Some(0))` relies on `POSE_LIBRARY.len() == 6` and `6 % 6 == 0`. If a pose is added or removed, the assertion either silently passes for the wrong reason or produces a confusing failure message. The expected value should be derived from the library length:
+
+```rust
+assert_eq!(
+    s.current_target,
+    Some(6 % poses::POSE_LIBRARY.len()),
+    "after 6 beats, current_target must wrap to 6 % POSE_LIBRARY.len()"
+);
+```
 
 ---
 
