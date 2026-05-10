@@ -54,17 +54,19 @@ Source: DESIGN.md spacing section; existing `.connection-screen` padding rule.
 
 Font: Inter. All labels uppercase. Letter-spacing ≥ 0.08em on all uppercase strings (per DESIGN.md rule).
 
+**Weights used in Phase 5: exactly 2 — 400 (regular) and 800 (prominent/action).**
+
 | Role | Size | Weight | Line Height | Letter-spacing | Usage |
 |------|------|--------|-------------|----------------|-------|
 | Fast-join header — game·room·player | 12px | 800 | 1.2 | 0.10em | BOXING · ROOM ABC123 · PLAYER 1 metadata row |
-| Fast-join title | 28px | 900 | 1.1 | 0.12em | Not used as a headline — the metadata row IS the headline; this slot reserved for "SPECTRE" logo text (already existing `.title` class, unchanged) |
-| Body / form labels | 12–14px (0.85rem) | 400–700 | 1.5 | 0.08–0.10em | Field labels, error text, slot picker legend (existing styles retained) |
+| Fast-join title | 28px | inherited / not governed by Phase 5 | 1.1 | 0.12em | "SPECTRE" logo text — existing `.title` class, unchanged by Phase 5 |
+| Body / form labels | 12–14px (0.85rem) | 400 | 1.5 | 0.08–0.10em | Field labels, error text, slot picker legend (existing styles retained) |
 | Button text | 16px (1rem) | 800 | — | 0.08em | "Join game", "Connect", "Retry" buttons |
 | "Enter manually" link | 12px (0.75rem) | 400 | 1.5 | 0.04em | De-emphasized escape hatch; NOT uppercase |
 
 Type decisions sourced from:
 - DESIGN.md `--type-label` (12px 800 0.10em uppercase) for metadata row.
-- DESIGN.md `--type-small` (12px 700 0.06em) for the "Enter manually" link (slightly lighter weight to de-emphasize).
+- DESIGN.md `--type-small` (12px, de-emphasized) for the "Enter manually" link — weight collapsed to 400 to align with the 2-weight contract.
 - Existing `.big-button` (Inter 800 1rem 0.08em uppercase) for "Join game" and "Retry".
 
 ---
@@ -197,7 +199,7 @@ Error messages appear in the existing `.error-banner` element. Phase 5 changes t
   - Background: `--bg-surface`
   - Border: 1px `--text-dim`
   - Color: `--text-primary`
-  - Font: Inter 700 14px uppercase letter-spacing 0.08em
+  - Font: Inter 800 14px uppercase letter-spacing 0.08em
   - Label: `Retry`
   - Hover: border → `--accent` 60% opacity, background → `--accent` 8% opacity
   - Active: `transform: scale(0.97)` 80ms ease-out
@@ -335,6 +337,7 @@ No shadcn, no third-party registries. All UI is hand-rolled CSS in `mobile/src/a
 | "PLAYER 1" vs "P1" display | Claude's discretion |
 | Retry button as secondary style (not `.big-button`) | Claude's discretion — hierarchy: primary CTA dominates, retry is secondary |
 | Button tint pattern (color-mix 15%) | DESIGN.md Lobby section, Create Room button spec |
+| Typography weight collapse to 400 + 800 | gsd-ui-checker revision — Dimension 4 fix (2026-05-09) |
 
 ---
 
