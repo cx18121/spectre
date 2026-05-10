@@ -236,6 +236,11 @@ impl GamePlugin for DancePlugin {
 /// Returns result clamped to [0.0, 1.0].
 fn score_pose(player_frame: &PoseFrame, target: &[PoseKeypoint]) -> f64 {
     if player_frame.keypoints.len() < target.len() {
+        tracing::warn!(
+            got = player_frame.keypoints.len(),
+            expected = target.len(),
+            "score_pose: sparse frame (fewer keypoints than target) — returning 0.0"
+        );
         return 0.0;
     }
     let mut dot = 0.0_f64;
@@ -387,7 +392,11 @@ mod tests {
         // (current_target) has wrapped back to index 0 (6 % 6 == 0).
         let s = state.downcast_ref::<DanceState>().unwrap();
         assert_eq!(s.target_index, 7, "target_index increments once per announcement (round start + 6 beats)");
-        assert_eq!(s.current_target, Some(0), "after 6 beats announced target should wrap back to index 0");
+        assert_eq!(
+            s.current_target,
+            Some(6 % poses::POSE_LIBRARY.len()),
+            "after 6 beats, current_target must wrap to 6 % POSE_LIBRARY.len()"
+        );
         assert_eq!(s.beats_scored, 6);
     }
 
