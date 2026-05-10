@@ -565,4 +565,27 @@ mod tests {
             result
         );
     }
+
+    // -----------------------------------------------------------------------
+    // spectator_snapshot_includes_game_type
+    // -----------------------------------------------------------------------
+    #[test]
+    fn spectator_snapshot_includes_game_type() {
+        let plugin = DancePlugin::new(test_config());
+        let mut state = plugin.init_state();
+        let (f0, f1) = empty_frames();
+
+        // Tick 1 — starts the round (sets round_started = true)
+        let ctx = make_ctx(1, &f0, &f1, false);
+        plugin.on_tick(&ctx, &mut *state);
+
+        let snapshot = plugin.spectator_snapshot(&*state)
+            .expect("snapshot must be Some during an active round");
+
+        assert_eq!(
+            snapshot["game_type"].as_str(),
+            Some("dance"),
+            "dance_snapshot payload must include game_type = 'dance'"
+        );
+    }
 }
