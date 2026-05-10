@@ -45,6 +45,8 @@ pub struct RoomState {
     /// would silently activate bot mode if P2 disconnects during a two-player match).
     pub solo_mode: bool,
     pub hp: [u32; 2],
+    /// Starting HP per player — set from plugin.initial_hp() at creation; used on round reset (WR-01).
+    pub initial_hp: u32,
     // Broadcast channel senders (rx subscribed by spectator handlers and outbound tasks)
     pub pose_tx: broadcast::Sender<String>,          // fast path (ENG-07, ENG-08)
     pub game_tx: broadcast::Sender<String>,          // slow path (ENG-08)
@@ -73,6 +75,7 @@ impl RoomState {
         plugin: Arc<dyn GamePlugin + Send + Sync>,
         game_type: String,
     ) -> Self {
+        let initial_hp = plugin.initial_hp();
         let plugin_state = plugin.init_state();
         Self {
             code,
@@ -85,7 +88,8 @@ impl RoomState {
             last_player_disconnected_at,
             max_wins,
             solo_mode: false,
-            hp: [800, 800],
+            hp: [initial_hp, initial_hp],
+            initial_hp,
             pose_tx,
             game_tx,
             plugin,

@@ -336,4 +336,10 @@ pub trait GamePlugin: Send + Sync {
     /// Called once on spectator WS connect during an active match.
     /// Return None if no mid-match state is meaningful (e.g., before first round starts).
     fn spectator_snapshot(&self, _state: &dyn Any) -> Option<serde_json::Value> { None }
+
+    /// Returns the initial HP per player for this game mode.
+    /// Used by the engine to set RoomState.hp at creation and reset between rounds (WR-01).
+    /// Default 800 matches the canonical boxing value.
+    /// Override in boxing plugin to return self.config.hp.
+    fn initial_hp(&self) -> u32 { 800 }
 }

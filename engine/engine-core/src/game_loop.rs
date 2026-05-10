@@ -313,7 +313,7 @@ fn handle_round_over(state: &mut RoomState, winner: Option<u8>) {
 
     // Reset for next round
     state.round_number += 1;
-    state.hp = [800, 800];
+    state.hp = [state.initial_hp, state.initial_hp]; // WR-01: use config value, not hardcoded 800
     state.round_start_time = Some(Instant::now());
     for player in state.players.iter_mut() {
         player.pose_buffer.clear();

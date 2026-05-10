@@ -213,6 +213,7 @@ impl GamePlugin for BoxingPlugin {
     }
 
     fn game_type(&self) -> &'static str { "boxing" }
+    fn initial_hp(&self) -> u32 { self.config.hp }
     // requires_calibration uses default true — no override needed
     // spectator_snapshot uses default None — no override needed
 }
