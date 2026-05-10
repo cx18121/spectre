@@ -224,7 +224,9 @@ fn default_type_dance_beat() -> String {
 pub struct MsgDanceBeat {
     #[serde(rename = "type", default = "default_type_dance_beat")]
     pub msg_type: String,
+    #[ts(type = "number")]  // WR-04: override bigint → number; shared/protocol.ts is authoritative
     pub beat: u64,
+    #[ts(type = "number")]  // WR-04: override bigint → number; shared/protocol.ts is authoritative
     pub total_beats: u64,
     /// Per-keypoint data as [x, y, z, visibility]. Matches the json!() payload from
     /// DancePlugin::on_tick: `[kp.x, kp.y, kp.z, kp.visibility]` per keypoint.
@@ -240,6 +242,7 @@ fn default_type_dance_score() -> String {
 pub struct MsgDanceScore {
     #[serde(rename = "type", default = "default_type_dance_score")]
     pub msg_type: String,
+    #[ts(type = "number")]  // WR-04: override bigint → number; shared/protocol.ts is authoritative
     pub beat: u64,
     /// Cumulative similarity scores for [player_1, player_2]. Range [0.0, 1.0].
     pub scores: [f64; 2],
