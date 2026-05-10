@@ -213,6 +213,7 @@ impl GamePlugin for DancePlugin {
         }
         Some(json!({
             "type": "dance_snapshot",
+            "game_type": "dance",
             "beat": s.beats_scored,
             "scores": [s.scores[0], s.scores[1]],
         }))
