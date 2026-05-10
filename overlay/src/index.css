@@ -763,6 +763,11 @@ button { font: inherit; }
   cursor: not-allowed;
 }
 
+.settings-slider:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-bright);
+  border-radius: 2px;
+}
+
 .settings-value {
   font-size: 10px;
   font-weight: 700;
