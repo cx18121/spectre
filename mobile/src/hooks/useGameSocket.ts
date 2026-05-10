@@ -39,6 +39,7 @@ export interface UseGameSocketResult {
   lastRoundEnd: RoundEnd | null;
   matchEnd: MatchEnd | null;
   errorMessage: string | null;
+  errorCode: 'unreachable' | 'room_not_found' | 'slot_taken' | null;
   send: (msg: OutboundMobileMsg) => void;
   connect: (serverUrl: string, roomCode: string, playerSlot: 1 | 2) => void;
   disconnect: () => void;
@@ -103,6 +104,7 @@ export function useGameSocket(): UseGameSocketResult {
   const [lastRoundEnd, setLastRoundEnd] = useState<RoundEnd | null>(null);
   const [matchEnd, setMatchEnd] = useState<MatchEnd | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<'unreachable' | 'room_not_found' | 'slot_taken' | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const pingTimerRef = useRef<number | null>(null);
@@ -225,6 +227,7 @@ export function useGameSocket(): UseGameSocketResult {
 
     intentionalCloseRef.current = false;
     setErrorMessage(null);
+    setErrorCode(null);
     setStatus('connecting');
 
     const base = normalizeWsUrl(args.serverUrl);
@@ -260,7 +263,8 @@ export function useGameSocket(): UseGameSocketResult {
 
     ws.addEventListener('error', () => {
       setStatus('error');
-      setErrorMessage('Connection error');
+      setErrorMessage("Can't reach the server. Check your connection and try again.");
+      setErrorCode('unreachable');
     });
 
     ws.addEventListener('close', (ev) => {
@@ -272,12 +276,14 @@ export function useGameSocket(): UseGameSocketResult {
       }
       if (ev.code === 4000) {
         setStatus('error');
-        setErrorMessage('Room is full.');
+        setErrorMessage('That slot is already taken. Ask the host to assign you a different player slot.');
+        setErrorCode('slot_taken');
         return;
       }
       if (ev.code === 4004) {
         setStatus('error');
-        setErrorMessage('Room not found.');
+        setErrorMessage(`Room ${args.roomCode} not found. Check the code or ask the host.`);
+        setErrorCode('room_not_found');
         return;
       }
       // Auto-reconnect on unexpected close. Use the ref so we always invoke
@@ -290,7 +296,8 @@ export function useGameSocket(): UseGameSocketResult {
         }, RECONNECT_DELAY_MS);
       } else {
         setStatus('error');
-        setErrorMessage('Could not reconnect.');
+        setErrorMessage("Can't reach the server. Check your connection and try again.");
+        setErrorCode('unreachable');
       }
     });
   }, [send, handleMessage]);
@@ -366,6 +373,7 @@ export function useGameSocket(): UseGameSocketResult {
     lastRoundEnd,
     matchEnd,
     errorMessage,
+    errorCode,
     send,
     connect,
     disconnect,
