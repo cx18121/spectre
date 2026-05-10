@@ -211,6 +211,37 @@ fn msg_you_were_hit_roundtrip() {
 }
 
 #[test]
+fn msg_dance_beat_roundtrip() {
+    let raw = fixture("msg_dance_beat");
+    let msg: MsgDanceBeat = serde_json::from_str(&raw).expect("deserialize MsgDanceBeat");
+    let re = serde_json::to_string(&msg).expect("serialize MsgDanceBeat");
+    let orig: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    let round: serde_json::Value = serde_json::from_str(&re).unwrap();
+    assert_type_field(&round, "dance_beat");
+    assert_eq!(orig["beat"], round["beat"]);
+    assert_eq!(orig["total_beats"], round["total_beats"]);
+    assert!(round["target_pose"].is_array(), "target_pose must be an array");
+    // Verify outer array length matches fixture (2 keypoints)
+    assert_eq!(round["target_pose"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn msg_dance_score_roundtrip() {
+    let raw = fixture("msg_dance_score");
+    let msg: MsgDanceScore = serde_json::from_str(&raw).expect("deserialize MsgDanceScore");
+    let re = serde_json::to_string(&msg).expect("serialize MsgDanceScore");
+    let orig: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    let round: serde_json::Value = serde_json::from_str(&re).unwrap();
+    assert_type_field(&round, "dance_score");
+    assert_eq!(orig["beat"], round["beat"]);
+    assert!(round["scores"].is_array(), "scores must be an array");
+    assert_eq!(round["scores"].as_array().unwrap().len(), 2);
+    // Verify score values round-trip correctly
+    assert_eq!(orig["scores"][0], round["scores"][0]);
+    assert_eq!(orig["scores"][1], round["scores"][1]);
+}
+
+#[test]
 fn inbound_mobile_msg_discriminator() {
     // All 5 inbound variants must deserialize via InboundMobileMsg
     let cases = vec![
