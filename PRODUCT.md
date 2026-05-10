@@ -34,3 +34,30 @@ Intense but disciplined. Not chaotic, not flashy for its own sake. The aesthetic
 3. The spectator experience is what makes someone want to play next.
 4. Physical drama in the room should be matched by visual drama on screen.
 5. Clean wins. When in doubt, remove the element.
+
+## Game Modes
+
+Spectre runs two game modes that share the same aesthetic but operate in different emotional registers.
+
+### Boxing
+
+Register: combat. Players throw punches and kicks; HP depletes; rounds end in KO or decision. Copy uses fight vocabulary: KO, ROUND N -- P1 WINS, damage, hits. The dramatic peaks (KO text, countdown, hit flash) are designed to match the physicality of punching.
+
+Tone guidance: intense, immediate, zero-latency feedback. Every hit should feel consequential. The HP bar is a clock and a threat.
+
+### Dance
+
+Register: performance. Players match pose targets scored beat by beat; scores accumulate from zero; rounds end when beats are exhausted. Copy uses scoreboard vocabulary: ROUND N -- P1 LEADS, TIED, final scores. No KO, no damage, no "WINS" in the fight sense.
+
+Tone guidance: disciplined rhythm over chaotic aggression. The ghost skeleton is an invitation, not a challenge. The score gap between players should be readable at a glance -- numbers dominate, not colors or animations.
+
+Shared aesthetic rules (both modes):
+- Same OKLCH color system, same ink-black backgrounds, same Inter + Achafont type pairing.
+- Achafont for dramatic display moments in both modes (round flash, match end headline).
+- No neon, no RGB gradients, no glassmorphism -- the anti-references in this document apply equally.
+- The overlay is the product in both modes. Physical action in the room drives what spectators see on screen.
+
+Anti-references for dance specifically:
+- Dance game show aesthetics (sparkles, bright pastels, star ratings)
+- Music rhythm game chrome (note highways, multiplier counters, score combos with pop-up labels)
+- Generic fitness app UI (progress rings, streak badges, calorie counters)
