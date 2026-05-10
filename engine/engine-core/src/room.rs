@@ -264,7 +264,9 @@ fn handle_cmd(state: &mut RoomState, cmd: RoomCmd) {
             // never sent, blocking the entire solo flow (CR-01).
             // Dance rooms: skip calibration entirely; set sentinel velocities and start match now.
             let solo_mode = !state.players[1].connected;
-            if state.players[0].connected && state.players[1].connected {
+            if state.players[0].connected && state.players[1].connected
+                && state.round_start_time.is_none()  // CR-02: guard against restarting an already-running match when P2 joins late
+            {
                 if state.plugin.requires_calibration() {
                     use crate::protocol::MsgCalibrationStart;
                     if let Ok(json) = serde_json::to_string(&MsgCalibrationStart {
