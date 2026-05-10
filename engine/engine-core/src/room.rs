@@ -389,6 +389,17 @@ fn handle_cmd(state: &mut RoomState, cmd: RoomCmd) {
                     *guard = Some(Instant::now());
                 }
             }
+            // WR-05: send player_disconnected to the remaining connected player
+            use crate::protocol::MsgPlayerDisconnected;
+            let remaining = 1 - slot;
+            if state.players[remaining].connected {
+                if let Ok(json) = serde_json::to_string(&MsgPlayerDisconnected {
+                    msg_type: "player_disconnected".to_string(),
+                    player: (slot + 1) as u8,
+                }) {
+                    send_to_slot(state, remaining, &json);
+                }
+            }
             // Broadcast lobby update
             if let Ok(json) = serde_json::to_string(&MsgLobbyUpdate {
                 msg_type: "lobby_update".to_string(),
