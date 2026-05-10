@@ -10,9 +10,11 @@ interface RoundOverlayProps {
   matchStats: MatchStats | null;
   serverUrl: string;
   roomCode: string;
+  gameType: 'boxing' | 'dance' | null;
+  danceScores: [number, number];
 }
 
-export function RoundOverlay({ roundState, matchWinner, matchStats, serverUrl, roomCode }: RoundOverlayProps) {
+export function RoundOverlay({ roundState, matchWinner, matchStats, serverUrl, roomCode, gameType, danceScores }: RoundOverlayProps) {
   const [showStart, setShowStart] = useState(false);
   const [showEnd, setShowEnd] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
@@ -139,55 +141,121 @@ export function RoundOverlay({ roundState, matchWinner, matchStats, serverUrl, r
       )}
       {hasEnd && (
         <div key={`round-end-${endRound}-${endWinner}`} className="round-flash">
-          ROUND {endRound} — P{endWinner} WINS
+          {gameType === 'dance'
+            ? endWinner
+              ? `ROUND ${endRound} — P${endWinner} LEADS`
+              : `ROUND ${endRound} — TIED`
+            : `ROUND ${endRound} — P${endWinner} WINS`}
+          {gameType === 'dance' && (
+            <div className="round-flash-subscores">
+              P1: {danceScores[0].toFixed(1)}&nbsp;&nbsp;P2: {danceScores[1].toFixed(1)}
+            </div>
+          )}
         </div>
       )}
       {hasMatch && (
         <div className="match-end-overlay">
-          <div className="ko-text">K.O.</div>
-          <div className="match-end-title">
-            PLAYER {matchWinner} WINS
-          </div>
-          {matchStats && (
-            <div className="match-stats">
-              <div className="match-stats-col match-stats-col-p1">
-                <div className="match-stat">
-                  <span className="match-stat-value p1">
-                    {matchStats.damage[0].toLocaleString()}
+          {gameType === 'dance' ? (
+            <>
+              {/* "WINNER" or "TIED" label */}
+              {matchWinner ? (
+                <div className={`dance-match-winner-label dance-match-winner-label-p${matchWinner}`}>
+                  WINNER
+                </div>
+              ) : (
+                <div className="dance-match-winner-label" style={{ color: 'var(--text-secondary)' }}>
+                  TIED
+                </div>
+              )}
+
+              {/* Two large score numbers side by side */}
+              <div className="dance-match-score-row">
+                {/* P1 column */}
+                <div className="dance-match-score-col">
+                  <span className={`dance-match-score ${
+                    matchWinner === 1
+                      ? 'dance-match-score-winner-p1'
+                      : 'dance-match-score-loser'
+                  }`}>
+                    {danceScores[0].toFixed(1)}
                   </span>
-                  <span className="match-stat-label">DAMAGE</span>
+                  <span className="dance-match-player-label">P1</span>
                 </div>
-                <div className="match-stat">
-                  <span className="match-stat-value p1">{matchStats.hits[0]}</span>
-                  <span className="match-stat-label">HITS</span>
-                </div>
-              </div>
-              <div className="match-stats-sep" />
-              <div className="match-stats-col match-stats-col-p2">
-                <div className="match-stat">
-                  <span className="match-stat-value p2">
-                    {matchStats.damage[1].toLocaleString()}
+
+                <span className="dance-match-vs">vs</span>
+
+                {/* P2 column */}
+                <div className="dance-match-score-col">
+                  <span className={`dance-match-score ${
+                    matchWinner === 2
+                      ? 'dance-match-score-winner-p2'
+                      : 'dance-match-score-loser'
+                  }`}>
+                    {danceScores[1].toFixed(1)}
                   </span>
-                  <span className="match-stat-label">DAMAGE</span>
-                </div>
-                <div className="match-stat">
-                  <span className="match-stat-value p2">{matchStats.hits[1]}</span>
-                  <span className="match-stat-label">HITS</span>
+                  <span className="dance-match-player-label">P2</span>
                 </div>
               </div>
-              <div className="match-stats-footer">
-                {matchStats.rounds} {matchStats.rounds === 1 ? 'ROUND' : 'ROUNDS'}
+
+              {/* Rematch — existing .rematch-btn style, unchanged */}
+              <button
+                className="rematch-btn"
+                type="button"
+                onClick={handleRematch}
+                disabled={rematching}
+              >
+                {rematching ? 'REMATCHING…' : 'Play Again'}
+              </button>
+            </>
+          ) : (
+            /* Boxing match end — all existing content preserved exactly */
+            <>
+              <div className="ko-text">K.O.</div>
+              <div className="match-end-title">
+                PLAYER {matchWinner} WINS
               </div>
-            </div>
+              {matchStats && (
+                <div className="match-stats">
+                  <div className="match-stats-col match-stats-col-p1">
+                    <div className="match-stat">
+                      <span className="match-stat-value p1">
+                        {matchStats.damage[0].toLocaleString()}
+                      </span>
+                      <span className="match-stat-label">DAMAGE</span>
+                    </div>
+                    <div className="match-stat">
+                      <span className="match-stat-value p1">{matchStats.hits[0]}</span>
+                      <span className="match-stat-label">HITS</span>
+                    </div>
+                  </div>
+                  <div className="match-stats-sep" />
+                  <div className="match-stats-col match-stats-col-p2">
+                    <div className="match-stat">
+                      <span className="match-stat-value p2">
+                        {matchStats.damage[1].toLocaleString()}
+                      </span>
+                      <span className="match-stat-label">DAMAGE</span>
+                    </div>
+                    <div className="match-stat">
+                      <span className="match-stat-value p2">{matchStats.hits[1]}</span>
+                      <span className="match-stat-label">HITS</span>
+                    </div>
+                  </div>
+                  <div className="match-stats-footer">
+                    {matchStats.rounds} {matchStats.rounds === 1 ? 'ROUND' : 'ROUNDS'}
+                  </div>
+                </div>
+              )}
+              <button
+                className="rematch-btn"
+                type="button"
+                onClick={handleRematch}
+                disabled={rematching}
+              >
+                {rematching ? 'REMATCHING…' : 'REMATCH'}
+              </button>
+            </>
           )}
-          <button
-            className="rematch-btn"
-            type="button"
-            onClick={handleRematch}
-            disabled={rematching}
-          >
-            {rematching ? 'REMATCHING…' : 'REMATCH'}
-          </button>
         </div>
       )}
     </>
