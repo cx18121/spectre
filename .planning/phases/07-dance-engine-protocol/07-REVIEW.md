@@ -22,7 +22,12 @@ findings:
   warning: 6
   info: 2
   total: 10
-status: issues_found
+findings_resolved:
+  critical: 2
+  warning: 6
+  info: 0
+  total: 8
+status: fixed
 ---
 
 # Phase 07: Code Review Report
