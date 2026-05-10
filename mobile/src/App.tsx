@@ -26,11 +26,24 @@ function readInitialSlot(): 1 | 2 {
   return v === '2' ? 2 : 1;
 }
 
+function readInitialGame(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('game');
+}
+
 function App() {
   const [serverUrl, setServerUrl] = useState(readInitialServerUrl);
   const [roomCode, setRoomCode] = useState(readInitialRoomCode);
   const [playerSlot, setPlayerSlot] = useState<1 | 2>(readInitialSlot);
   const isSolo = new URLSearchParams(window.location.search).get('solo') === '1';
+  const [gameType] = useState<string | null>(readInitialGame);
+  const connectionArgsRef = useRef<{ serverUrl: string; roomCode: string; slot: 1 | 2 } | null>(null);
+
+  // Compute once at init — all 3 params present = fast-join mode (D-01)
+  const serverParam = new URLSearchParams(window.location.search).get('server');
+  const roomParam   = new URLSearchParams(window.location.search).get('room');
+  const slotParam   = new URLSearchParams(window.location.search).get('slot');
+  const allParamsPrefilled = !!serverParam && !!roomParam && !!slotParam;
 
   const socket = useGameSocket();
   const persistedRef = useRef(false);
@@ -47,11 +60,18 @@ function App() {
   }, [socket.status, serverUrl]);
 
   const handleConnect = (server: string, room: string, slot: 1 | 2) => {
+    connectionArgsRef.current = { serverUrl: server, roomCode: room, slot };
     setServerUrl(server);
     setRoomCode(room);
     setPlayerSlot(slot);
     socket.connect(server, room, slot);
   };
+
+  const handleRetry = useCallback(() => {
+    const args = connectionArgsRef.current;
+    if (!args) return;
+    socket.connect(args.serverUrl, args.roomCode, args.slot);
+  }, [socket]);
 
   const handleDisconnect = useCallback(() => {
     socket.disconnect();
@@ -88,7 +108,11 @@ function App() {
           initialSlot={playerSlot}
           status={socket.status}
           errorMessage={socket.errorMessage}
+          errorCode={socket.errorCode}
+          fastJoin={allParamsPrefilled}
+          gameType={gameType}
           onConnect={handleConnect}
+          onRetry={handleRetry}
         />
       )}
     </div>

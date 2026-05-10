@@ -7,7 +7,11 @@ interface ConnectionScreenProps {
   initialSlot: 1 | 2;
   status: SocketStatus;
   errorMessage: string | null;
+  errorCode: 'unreachable' | 'room_not_found' | 'slot_taken' | null;
+  fastJoin: boolean;
+  gameType: string | null;
   onConnect: (serverUrl: string, roomCode: string, slot: 1 | 2) => void;
+  onRetry: () => void;
 }
 
 export function ConnectionScreen({
@@ -16,19 +20,62 @@ export function ConnectionScreen({
   initialSlot,
   status,
   errorMessage,
+  errorCode,
+  fastJoin,
+  gameType,
   onConnect,
+  onRetry,
 }: ConnectionScreenProps) {
   const [serverUrl, setServerUrl] = useState(initialServerUrl);
   const [roomCode, setRoomCode] = useState(initialRoomCode);
   const [slot, setSlot] = useState<1 | 2>(initialSlot);
 
   const connecting = status === 'connecting';
+  const [showManual, setShowManual] = useState(false);
 
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
     if (!serverUrl.trim() || !roomCode.trim()) return;
     onConnect(serverUrl.trim(), roomCode.trim().toUpperCase(), slot);
   };
+
+  // Fast-join view: shown when all 3 params were prefilled AND user hasn't tapped "Enter manually"
+  if (fastJoin && !showManual) {
+    return (
+      <div className="connection-screen">
+        <h1 className="title">Spectre</h1>
+        <p className="fast-join-meta">
+          {gameType ? `${gameType.toUpperCase()} · ` : ''}
+          {`ROOM ${initialRoomCode} · PLAYER ${initialSlot}`}
+        </p>
+        <button
+          className="big-button fast-join-cta"
+          onClick={() => onConnect(initialServerUrl, initialRoomCode, initialSlot)}
+          disabled={connecting}
+          style={{ marginTop: 32 }}
+        >
+          {connecting ? 'Joining...' : 'Join game'}
+        </button>
+        <button className="enter-manually" onClick={() => setShowManual(true)}>
+          Enter manually
+        </button>
+        {errorMessage ? (
+          <div className="error-banner">
+            {errorMessage}
+            {errorCode === 'unreachable' && (
+              <button
+                className="retry-button"
+                onClick={onRetry}
+                disabled={connecting}
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="connection-screen">
@@ -37,17 +84,20 @@ export function ConnectionScreen({
       <form onSubmit={submit} style={{ display: 'contents' }}>
         <p className="subtitle">Join a match</p>
 
-        <label className="field">
-          <span>Server URL</span>
-          <input
-            inputMode="url"
-            autoComplete="off"
-            spellCheck={false}
-            value={serverUrl}
-            onChange={(e) => setServerUrl(e.target.value)}
-            placeholder="ws://192.168.1.42:8000"
-          />
-        </label>
+        {/* Server URL visible when: no ?server= param given, OR user tapped "Enter manually" (D-06, D-08) */}
+        {(!initialServerUrl || showManual) && (
+          <label className="field">
+            <span>Server URL</span>
+            <input
+              inputMode="url"
+              autoComplete="off"
+              spellCheck={false}
+              value={serverUrl}
+              onChange={(e) => setServerUrl(e.target.value)}
+              placeholder="ws://192.168.1.42:8000"
+            />
+          </label>
+        )}
 
         <label className="field">
           <span>Room code</span>
@@ -95,7 +145,20 @@ export function ConnectionScreen({
         </button>
       </form>
 
-      {errorMessage ? <div className="error-banner">{errorMessage}</div> : null}
+      {errorMessage ? (
+        <div className="error-banner">
+          {errorMessage}
+          {errorCode === 'unreachable' && (
+            <button
+              className="retry-button"
+              onClick={onRetry}
+              disabled={connecting}
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
