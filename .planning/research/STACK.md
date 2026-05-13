@@ -1,139 +1,149 @@
 # Stack Research
 
-**Domain:** Real-time WebSocket game server — Rust rewrite of Python/FastAPI
-**Researched:** 2026-05-01
-**Confidence:** HIGH (all versions verified against crates.io; rationale verified against official docs and Context7)
+**Domain:** First-person 3D boxing game with webcam pose/hand detection, browser client
+**Researched:** 2026-05-12
+**Confidence:** HIGH (all versions verified via npm registry; patterns verified against existing codebase)
 
 ---
 
-## Recommended Stack
+## Context: What Exists vs. What Is New
+
+This is a subsequent milestone. The following are already validated and must NOT change:
+
+| Existing | Version | Status |
+|----------|---------|--------|
+| `@mediapipe/tasks-vision` | `^0.10.34` (mobile) | Validated — PoseLandmarker in module Worker |
+| Rust Axum + Tokio WS server | latest in Cargo.lock | Validated — do not touch |
+| Wire protocol (`shared/protocol.ts`) | — | Byte-for-byte frozen |
+| Vite + React + TypeScript | Vite 8, React 18/19, TS 6 | Validated per overlay/mobile |
+| Vitest | `^2.0.0` (overlay) / `^4.1.5` (mobile) | Validated |
+
+Everything below is **new** — additions only for the `fps-boxing` frontend.
+
+---
+
+## New Client: `fps-boxing` Browser App
+
+A new Vite app at `fps-boxing/` (sibling to `overlay/` and `mobile/`). Laptop-only. No phone required.
 
 ### Core Technologies
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| axum | 0.8.9 | HTTP routing, WebSocket upgrade, static file serving | First-party Tokio ecosystem framework. WebSocket support is built-in via `axum::extract::ws` (backed by tokio-tungstenite 0.29 as a private dep, so axum absorbs future tungstenite breaking changes without your API changing). Tower middleware composability. No macro-based routing — routes are plain Rust. Minimum Rust 1.80. |
-| tokio | 1.52.1 | Async runtime, timers, channels, task spawning | The runtime everything else runs on. `tokio::time::interval` drives the 60Hz game loop. `tokio::sync::broadcast` drives spectator fan-out. `tokio::spawn` gives each WebSocket connection its own task. Multi-threaded scheduler exploits all CPU cores — unlike Python's single-threaded asyncio GIL. |
-| serde | 1.0.228 | Derive `Serialize`/`Deserialize` on all wire structs | The zero-cost derive macro. No runtime reflection — all serialization code generated at compile time. Pair `#[serde(rename_all = "snake_case")]` on every struct to match the existing Python/TypeScript protocol's field naming exactly. |
-| serde_json | 1.0.149 | JSON wire serialization for all WebSocket messages | The canonical serde backend for JSON. `serde_json::to_string()` replaces `model.model_dump_json()`. Tagged enum dispatch (`#[serde(tag = "type")]`) maps directly to the existing Pydantic discriminator field `type`. |
-| tower-http | 0.6.8 | Static file serving (`ServeDir`), CORS | `ServeDir::new("mobile/dist").not_found_service(ServeFile::new("mobile/dist/index.html"))` replaces FastAPI's `mount`. The `fs` feature must be enabled. Composes as Tower middleware on the axum Router. |
+| `three` | `^0.184.0` | 3D first-person rendering of arms | Current stable (r175 = March 2025; npm latest is 0.184.0, verified). WebGLRenderer is the right target — WebGPU renderer is still experimental/addon and not needed for a simple arm mesh. Procedural SkinnedMesh + Bone API is stable and well-documented. |
+| `@types/three` | `^0.184.1` | TypeScript types for Three.js | Kept in lock-step with three version; latest is 0.184.1 (verified npm). Major version must match three exactly. |
+| `@mediapipe/tasks-vision` | `^0.10.35` | HandLandmarker + PoseLandmarker in webcam mode | Bump from 0.10.34 used in mobile — 0.10.35 is latest (verified npm). Same package, same Web Worker + module pattern already proven in `mobile/src/workers/pose.worker.ts`. |
+| React | `^19.2.5` | UI shell, HUD, state | Matches mobile. Use 19, not 18. Provides hooks for webcam setup and WS connection state. |
+| React DOM | `^19.2.5` | React renderer | Matches mobile. |
+| Vite | `^8.0.10` | Build + dev server | Matches overlay and mobile exactly — no version experiments. |
+| TypeScript | `~6.0.2` | Type safety | Matches overlay and mobile. |
 
 ### Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| tokio (features: full) | 1.52.1 | Enables all Tokio primitives: `sync`, `time`, `fs`, `io` | Always — use `tokio = { version = "1", features = ["full"] }` in Cargo.toml for a server binary |
-| reqwest | 0.13.3 | Async HTTP client for Claude API and ElevenLabs TTS | Commentary path only — one `reqwest::Client` (cloneable `Arc` internally) shared across all rooms. Use `.json()` for Claude, `.bytes_stream()` for ElevenLabs streaming audio chunks. Enable feature `stream` for `Response::bytes_stream()`. |
-| tracing | 0.1.44 | Structured per-span logging | Replaces Python `logging.getLogger(__name__)`. Decorate each WebSocket task with `#[tracing::instrument]` to get room_code/slot automatically in all log lines. |
-| tracing-subscriber | 0.3.23 | Formats and emits tracing events to stdout | Use `tracing_subscriber::fmt::init()` in `main`. Replace with JSON format for production log aggregation later if needed. |
-| thiserror | 2.0.18 | Derive `Error` + `Display` for domain error enums | Define a `GameError` enum and a `ProtocolError` enum. Avoids `Box<dyn Error>` in game-domain code where caller needs to match on variants. |
-| dotenvy | 0.15.7 | Load `.env` at startup | Replaces `python-dotenv`. Actively maintained fork of unmaintained `dotenv` crate. One call: `dotenvy::dotenv().ok();` in `main`. |
-| dashmap | 6.1.0 | Concurrent `HashMap<RoomCode, Arc<RoomState>>` | Room registry replacing Python's `dict`-backed `RoomManager`. Lock-free reads by shard. Critical: never hold a `DashMap` entry ref across an `.await` — take the `Arc<RoomState>` out of the entry and drop the ref before awaiting. |
-| uuid | 1.23.1 | Generate 6-char room codes (or standard UUIDs internally) | Generate internal correlation IDs. Room codes remain `random::choices` equivalent — use `rand` for that, not UUID. |
-| rand | 0.9.x | Random 6-char room code generation | Direct replacement for Python `random.choices`. Use `rand::distributions::Alphanumeric` sampled from `thread_rng`. |
-| base64 | 0.22.1 | Encode ElevenLabs MP3 chunks as base64 for `commentary_audio` wire message | Commentary path only — `base64::engine::general_purpose::STANDARD.encode(bytes)` produces the `audio_b64` field value. |
-| qrcode | 0.14.1 | Generate QR code PNG bytes for the lobby HTML endpoint | Replaces Python `qrcode + Pillow`. Renders to `image::DynamicImage`, then PNG bytes via `image` crate, then base64 for the `<img>` data URI. |
+| `@vitejs/plugin-react` | `^6.0.1` | Vite React transform | Same version as mobile/overlay — needed for JSX. |
+| `vitest` | `^2.0.0` | Unit tests | Match overlay's version (not mobile's 4.x) to keep the new app aligned with the simpler test harness. |
+| `@vitest/ui` | `^2.0.0` | Vitest UI | Same as overlay. |
+| `jsdom` | `^25.0.0` | Test environment | Same as overlay. |
+| `@testing-library/react` | `^16.0.0` | Component tests | Same as overlay. |
+| `@testing-library/jest-dom` | `^6.0.0` | DOM matchers | Same as overlay. |
 
 ### Development Tools
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| cargo-watch | Auto-recompile on save during dev | `cargo watch -x run` — equivalent to uvicorn's `--reload` |
-| cargo-nextest | Faster parallel test runner | Drop-in for `cargo test`; produces better output for async test failures |
-| Rust 1.80+ | Minimum compiler version | Required by axum 0.8. Use `rust-toolchain.toml` to pin the edition. |
+| Vite dev server | Hot reload during development | `vite.config.ts` needs a `resolve.alias` for `@shared` pointing to `../shared/protocol.ts`, same pattern as mobile/overlay. |
+| `tsc -b --force` | Build step | Same invocation as all other clients: `"build": "tsc -b --force && vite build"`. |
+
+---
+
+## MediaPipe Integration: Webcam on Laptop
+
+### Strategy: Two Landmarkers, One Worker
+
+Run `PoseLandmarker` and `HandLandmarker` in the **same dedicated Web Worker**, initialized sequentially. A single worker processes one frame at a time and posts back combined results. This avoids two separate workers competing for the same ImageBitmap transfer.
+
+**Why not HolisticLandmarker:** Google's HolisticLandmarker page explicitly states "An upgraded version of this MediaPipe Solution is coming soon" and has no confirmed JavaScript/web guide. Do not use for this milestone. Use separate PoseLandmarker + HandLandmarker from the same `@mediapipe/tasks-vision` package.
+
+**Why not two separate workers:** `ImageBitmap` can only be transferred (zero-copy) to one recipient. Using `createImageBitmap` twice per frame adds ~2ms of copy overhead and doubles the WASM memory footprint. Sequential detection in one worker is simpler and sufficient for 30 fps.
+
+**Worker message contract (new file `fps-boxing/src/workers/pose-hand.worker.ts`):**
+
+```typescript
+type InMessage =
+  | { type: 'init'; wasmUrl: string; poseModelUrl: string; handModelUrl: string }
+  | { type: 'detect'; bitmap: ImageBitmap; timestampMs: number };
+
+type OutMessage =
+  | { type: 'ready' }
+  | { type: 'error'; message: string }
+  | { type: 'result'; poseKeypoints: PoseKeypoint[] | null; handLandmarks: HandLandmark[][] | null };
+```
+
+**HandLandmarker output:** 21 landmarks per detected hand, each with `{x, y, z}` (image-normalized) and world coordinates in meters (relative to hand geometric center). Use `numHands: 2` to detect both fists simultaneously.
+
+**Webcam access:** `navigator.mediaDevices.getUserMedia({ video: true })` — same approach as `mobile/src/hooks/useCamera.ts`. Requires HTTPS or localhost.
+
+---
+
+## Three.js Rendering: First-Person Stylized Arms
+
+### Approach: Procedural SkinnedMesh
+
+The Arms-style aesthetic uses chunky, cartoonish arms with flat/toon shading. Build these procedurally — no external 3D assets, no art pipeline, no binary files in the repo.
+
+**Geometry:** `CylinderGeometry` for each arm segment (upper arm, forearm), `SphereGeometry` for the fist. Skin each segment to a 3-bone chain (`shoulder → elbow → wrist`) using the `skinIndex` + `skinWeight` buffer attribute pattern shown in Three.js's own `bones-browser.html` example.
+
+**Material:** `MeshToonMaterial` with a 2-pixel `DataTexture` as the gradient map. This gives the hard-light-step cel-shading look without any custom GLSL. `MeshToonMaterial` is a built-in Three.js material, stable since r120+.
+
+**Skeleton:** `Bone` + `Skeleton` + `SkinnedMesh.bind()`. Drive bone rotations from MediaPipe world landmarks: shoulder, elbow, and wrist keypoints map directly to upper-arm and forearm Euler angles via `THREE.Vector3` direction vectors.
+
+**Camera:** `PerspectiveCamera` (FOV ~75°) at a fixed position. Arms are a child `Group` attached to the camera's local space so they always appear in the lower-third of the viewport. No head-bob, no physics needed.
+
+**Renderer:** `WebGLRenderer({ antialias: false })` for performance. Canvas sized to `window.innerWidth × window.innerHeight`. No post-processing needed for the MVP.
+
+**Why raw Three.js, not React Three Fiber:** R3F abstracts Three.js behind React state and a reconciler, which adds complexity and re-render cost in a 60 fps rAF loop. The existing overlay already uses raw Pixi.js for the same reason — consistency.
+
+---
+
+## Rust Server: New Client Type Wiring
+
+### Strategy: New WS Route, Reuse Existing Actor
+
+Add a new WebSocket route `ws_fps_player` at `/ws/fps/{room_code}` in `engine-core/src/main.rs`. This is structurally identical to `handle_player` but carries hand landmarks in addition to pose keypoints.
+
+**Do NOT modify `handle_player`, `MsgPoseFrame`, or `shared/protocol.ts`** — the mobile wire protocol is frozen and mobile clients are unaffected.
+
+**New Rust additions (engine-core only):**
+
+1. `MsgFpsPoseFrame` struct — extends the existing `MsgPoseFrame` shape with `hand_landmarks: Vec<Vec<PoseKeypoint>>`. Reuses `PoseKeypoint` for 3D coordinates; the `visibility` field is set to 1.0 for hand landmarks (unused).
+2. A new `RoomCmd::FpsPoseFrame` variant (or extend `PoseFrame` with an `Option<Vec<Vec<PoseKeypoint>>>`) so the room actor can store hand data on `PlayerSlot`.
+3. `hand_landmarks: Option<Vec<Vec<PoseKeypoint>>>` added to `PlayerSlot` — populated each frame, read by `FPSBoxingPlugin` via `TickContext`.
+4. `POST /rooms?game=fps_boxing` is handled automatically — just register `FPSBoxingPlugin` in the `plugins` HashMap in `main()`.
+
+**Integration with FPSBoxingPlugin:** The plugin receives `TickContext` with per-player pose frames. It reads `PlayerSlot::hand_landmarks` directly to detect punch velocity from wrist world coordinates — same punch-detection math as the existing BoxingPlugin, but driven from webcam wrist/elbow positions instead of phone world landmarks.
+
+**Do not add `/ws/fps` to `shared/protocol.ts` yet** — keep the Rust-side types internal until the shape stabilizes at phase end.
 
 ---
 
 ## Installation
 
-```toml
-# Cargo.toml [dependencies]
-axum        = { version = "0.8", features = ["ws", "macros"] }
-tokio       = { version = "1",   features = ["full"] }
-serde       = { version = "1",   features = ["derive"] }
-serde_json  = "1"
-tower-http  = { version = "0.6", features = ["fs", "cors"] }
-reqwest     = { version = "0.13", features = ["json", "stream"] }
-tracing     = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-thiserror   = "2"
-dotenvy     = "0.15"
-dashmap     = "6"
-rand        = "0.9"
-base64      = "0.22"
-qrcode      = { version = "0.14", features = ["image"] }
-image       = "0.25"
+```bash
+# fps-boxing/ (new Vite app, mirrors mobile/ structure)
+
+# Core runtime
+npm install three @mediapipe/tasks-vision react react-dom
+
+# Dev dependencies
+npm install -D @types/three @types/react @types/react-dom \
+  @vitejs/plugin-react typescript vite \
+  vitest @vitest/ui jsdom \
+  @testing-library/react @testing-library/jest-dom \
+  eslint @eslint/js eslint-plugin-react-hooks eslint-plugin-react-refresh \
+  globals typescript-eslint @types/node
 ```
-
----
-
-## Wire Protocol Mapping
-
-The existing TypeScript protocol uses internally-tagged JSON: every message has a `"type"` string discriminator field alongside its other fields (e.g., `{"type":"pose_frame","timestamp":1.0,"keypoints":[...]}}`).
-
-Map this directly in Rust with:
-
-```rust
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum ServerToOverlay {
-    GameState(MsgGameState),
-    PoseUpdate(MsgPoseUpdate),
-    RoundStart(MsgRoundStart),
-    // ...
-}
-```
-
-The `#[serde(tag = "type")]` attribute makes serde emit/consume the `type` field as the discriminator, exactly matching the existing Pydantic `Literal["game_state"]` discriminator. All field names use `snake_case` already — no per-field `rename` needed provided `rename_all = "snake_case"` is applied at struct level.
-
-**Critical constraint:** The `poses` field in `MsgGameState` must serialize as an empty two-element array `[[], []]` when no pose data is present (the Python server sends `_EMPTY_POSES = ([], [])` deliberately — overlay reads it and skips draw). Represent this in Rust as `poses: (Vec<PoseKeypoint>, Vec<PoseKeypoint>)` with default empty vecs.
-
----
-
-## Game Loop Pattern
-
-```rust
-// One tokio::task per room
-let mut interval = tokio::time::interval(Duration::from_millis(16)); // ~60Hz
-interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-loop {
-    interval.tick().await;
-    // drain input buffers, run hit detection, broadcast game_state
-}
-```
-
-Use `MissedTickBehavior::Skip` (not the default `Burst`). The default `Burst` fires missed ticks as fast as possible to "catch up" — under CPU load this causes a flood of game_state broadcasts. `Skip` drops a frame and waits for the next aligned tick, preserving consistent inter-tick spacing.
-
----
-
-## Spectator Fan-Out Pattern
-
-```rust
-// Per-room: created when the room is initialized
-let (tx, _rx) = tokio::sync::broadcast::channel::<Arc<String>>(64);
-
-// Game loop: broadcast serialized game_state JSON
-let json = Arc::new(serde_json::to_string(&msg)?);
-let _ = tx.send(json); // ok if zero subscribers
-
-// Each spectator WebSocket task:
-let mut rx = room.broadcast_tx.subscribe();
-loop {
-    tokio::select! {
-        msg = rx.recv() => {
-            match msg {
-                Ok(json) => { ws.send(Message::Text(json.as_str().into())).await?; }
-                Err(RecvError::Lagged(n)) => { /* log n dropped frames, continue */ }
-                Err(RecvError::Closed) => break,
-            }
-        }
-        Some(incoming) = ws.recv() => { /* spectators send nothing; drain and discard */ }
-    }
-}
-```
-
-Key point: broadcast sends `Arc<String>` not `String` — cloning the Arc is O(1) regardless of how many spectators there are. Handle `RecvError::Lagged` explicitly; a slow spectator should log and continue, not crash the task.
 
 ---
 
@@ -141,13 +151,11 @@ Key point: broadcast sends `Arc<String>` not `String` — cloning the Arc is O(1
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| axum 0.8 built-in WebSocket (`axum::extract::ws`) | tokio-tungstenite standalone | Only if building a pure WebSocket server with no HTTP routing or middleware needs — standalone server with no REST endpoints, no static file serving |
-| axum 0.8 built-in WebSocket | `axum-tungstenite` crate | Never — `axum-tungstenite` exposes tungstenite types in its public API, meaning it tracks tungstenite major versions as its own major versions, creating unnecessary churn |
-| `tokio::sync::broadcast` for spectators | `mpsc` + fan-out dispatcher | Only if you need guaranteed delivery to slow spectators and are willing to add back-pressure logic; broadcast is correct for this use case because spectators can tolerate dropped frames |
-| `dashmap` for room registry | `Arc<RwLock<HashMap<...>>>` | Small number of rooms and/or low contention — `RwLock` is simpler to reason about; `dashmap` wins at high room counts due to sharding |
-| `reqwest` for HTTP (Claude + ElevenLabs) | `hyper` directly | Only if you need absolute minimal dependency tree and are willing to write raw HTTP client code |
-| `async-anthropic` or raw `reqwest` for Claude | Official Anthropic Rust SDK | There is no official Anthropic Rust SDK as of 2026. `async-anthropic` (0.6.0, last updated May 2025) is the best community option; alternatively use raw `reqwest` against the Messages API — that keeps the dependency count low and the API is simple enough |
-| `serde_json` | `rmp-serde` (MessagePack) | Only if profiling shows JSON serialization is a bottleneck — binary protocol requires client changes; wire compatibility with TypeScript clients would be broken |
+| Raw `three` | React Three Fiber (`@react-three/fiber`) | When prototyping or scene graph is complex enough to benefit from declarative JSX. Not here — two arms in a 60 fps game loop. |
+| `MeshToonMaterial` | Custom GLSL toon shader | When needing multi-step gradients, rim lighting, or outline passes. `MeshToonMaterial` covers the MVP aesthetic without a shader. |
+| PoseLandmarker + HandLandmarker (separate, one worker) | HolisticLandmarker | When HolisticLandmarker has a confirmed, stable JS API. Currently it does not — skip it. |
+| New WS route `/ws/fps/{room_code}` | Extend `/ws/player/{room_code}` with a `?client_type=fps` query param | Either works. A separate route is cleaner — no branching inside the frozen `handle_player` handler, zero mobile client impact. |
+| Procedural `CylinderGeometry` arms | Load a GLTF model | When art assets are available and the aesthetic requires organic, non-primitive shapes. Procedural is faster to iterate, zero-dependency, and version-controllable. |
 
 ---
 
@@ -155,43 +163,35 @@ Key point: broadcast sends `Arc<String>` not `String` — cloning the Arc is O(1
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `actix-web` | Competing ecosystem — different runtime actor model, `tower` middleware does not compose, community momentum has shifted to axum | `axum` |
-| `warp` | Unmaintained since 2022; filter-based API is unusually hard to extend; no active development | `axum` |
-| `tokio-tungstenite` directly alongside `axum` | Axum 0.8's `ws` feature already depends on tokio-tungstenite 0.29 internally; adding tokio-tungstenite to your own Cargo.toml risks a version mismatch that causes two incompatible tungstenite versions in the dependency tree | Use only `axum::extract::ws` |
-| Default `MissedTickBehavior::Burst` for the game interval | Under any CPU load, burst will attempt to fire multiple 60Hz ticks as fast as possible to catch up, causing a flood of game_state broadcasts to spectators and making frame timing erratic | `interval.set_missed_tick_behavior(MissedTickBehavior::Skip)` |
-| `tokio::sync::Mutex` held across `.await` points (in WebSocket task inner loops) | Legal but impairs scheduler throughput — other tasks on the same thread cannot progress while the mutex is held across an await | Prefer `Arc<DashMap>` for room state; use short-locked `std::sync::Mutex` for pure in-memory state that doesn't need to be awaited |
-| `dotenv` crate (original) | Unmaintained since 2020; last release is 0.15.0 which has an incorrect error type | `dotenvy` (actively maintained fork, identical API) |
-| `anyhow` as the primary error type for game domain code | `anyhow::Error` is opaque — callers cannot match on variants; fine for application glue code but wrong for `GameLoop` internals where you need to dispatch on hit type or protocol error | `thiserror` for domain error enums; `anyhow` is acceptable in `main.rs` startup code only |
-| `bevy_ecs` or `hecs` | Full ECS adds significant complexity for a single-game use case; this project's game plugin trait is a custom abstraction already serving as the "system" boundary | Plain Rust structs + the `GamePlugin` trait |
+| `HolisticLandmarker` (`@mediapipe/tasks-vision`) | Google's own page says "coming soon"; no JavaScript guide exists; will block the milestone | `PoseLandmarker` + `HandLandmarker` separately |
+| `WebGPURenderer` (Three.js) | Still in addons/experimental state; adds complexity; unnecessary for two skinned arm meshes | `WebGLRenderer` |
+| React Three Fiber + Drei | Adds React reconciler overhead on a 60 fps rAF loop; not used elsewhere in the codebase | Raw `three` |
+| Two separate Web Workers for pose and hand | `ImageBitmap` can only be transferred once — second worker needs an extra `createImageBitmap` call per frame | One combined worker, sequential detection |
+| Three.js addon imports from `three/examples/jsm/` | Deprecated path removed in recent releases | Use `three/addons/` (e.g., `import { OrbitControls } from 'three/addons/controls/OrbitControls.js'`) |
+| Modifying `shared/protocol.ts` or `handle_player` during development | Breaks mobile clients; protocol is frozen | New Rust structs + new WS route only |
 
 ---
 
-## Version Compatibility Notes
+## Version Compatibility
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| axum 0.8.9 | tokio 1.x, tower 0.5.x, tower-http 0.6.x | axum 0.8 requires tower 0.5 — do not mix tower 0.4 |
-| tower-http 0.6.8 | tower 0.5.x | tower-http and tower must be same major series |
-| reqwest 0.13.3 | tokio 1.x, rustls or native-tls | Choose one TLS backend; default is `rustls-tls`; use `default-features = false, features = ["rustls-tls", "json", "stream"]` for reproducible builds |
-| tracing-subscriber 0.3.23 | tracing 0.1.x | Same minor family; both are 0.x pre-1.0 but have been stable in practice for years |
-| serde 1.0.228 | serde_json 1.0.149 | Always use matching minor series from same release period |
-| dashmap 6.1.0 | stable only (rc2 of v7 exists but is pre-release as of 2026-05-01) | Pin to `"6"` not `"*"` |
+| Package A | Compatible With | Notes |
+|-----------|-----------------|-------|
+| `three@^0.184.0` | `@types/three@^0.184.1` | Types are generated per three.js release — major versions must match. `^` allows patch updates safely. |
+| `@mediapipe/tasks-vision@^0.10.35` | WASM CDN at `cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm` | Pin the CDN URL to match the npm package version exactly — mismatches cause silent WASM init failures (observed in community issues). |
+| `vite@^8.0.10` | `@vitejs/plugin-react@^6.0.1` | Matches mobile and overlay — no version experiments needed. |
+| `react@^19.2.5` | `@types/react@^19.x`, `@types/react-dom@^19.x` | React 19 type packages. Use `^19`, not `^18`. |
 
 ---
 
 ## Sources
 
-- crates.io REST API — version numbers for axum (0.8.9), tokio (1.52.1), serde (1.0.228), serde_json (1.0.149), reqwest (0.13.3), tower (0.5.3), tower-http (0.6.8), tracing (0.1.44), tracing-subscriber (0.3.23), thiserror (2.0.18), dotenvy (0.15.7), dashmap (6.1.0), uuid (1.23.1), base64 (0.22.1), qrcode (0.14.1) — HIGH confidence (direct API query, 2026-05-01)
-- Context7 `/websites/rs_axum_0_8_8_axum` — axum WebSocket upgrade API, `State` extractor pattern, static serving via `nest_service` — HIGH confidence
-- Context7 `/websites/rs_tokio_1_49_0` — `broadcast::channel`, `MissedTickBehavior`, `tokio::sync` primitives — HIGH confidence
-- Context7 `/serde-rs/serde` — `#[serde(tag = "type")]`, `rename_all = "snake_case"`, field attributes — HIGH confidence
-- Context7 `/websites/rs_reqwest_0_13_2_reqwest` — `.json()`, `.bytes_stream()` patterns — HIGH confidence
-- https://tokio.rs/blog/2025-01-01-announcing-axum-0-8-0 — axum 0.8 release notes, path syntax change, removal of `#[async_trait]` — HIGH confidence
-- https://serde.rs/enum-representations.html — internally tagged enum representations — HIGH confidence
-- https://docs.rs/axum/latest/axum/extract/ws/index.html — confirms axum uses tokio-tungstenite as private dep, WebSocket split() pattern — HIGH confidence
-- WebSearch: async-anthropic crate (0.6.0) — MEDIUM confidence (community crate, verify activity before adopting)
+- npm CLI (`npm show three version`, `npm show @mediapipe/tasks-vision version`, `npm show @types/three version`): confirmed `three@0.184.0`, `@mediapipe/tasks-vision@0.10.35`, `@types/three@0.184.1` — HIGH confidence
+- Context7 `/mrdoob/three.js`: SkinnedMesh constructor, `createGeometry`/`createBones`/`createMesh` pattern, `MeshToonMaterial` confirmed — HIGH confidence
+- Google AI Edge official docs (WebFetch `ai.google.dev`): HandLandmarker web/JS guide confirmed for VIDEO mode; 21 landmarks per hand; web worker usage documented — HIGH confidence
+- Google AI Edge HolisticLandmarker page (WebFetch): "coming soon" status confirmed, no JS guide — HIGH confidence (negative finding)
+- Existing codebase `mobile/src/workers/pose.worker.ts`: module Worker pattern with `@mediapipe/tasks-vision` `PoseLandmarker` confirmed working with `{ type: 'module' }` worker — HIGH confidence
 
 ---
 
-*Stack research for: PoseEngine — Rust real-time WebSocket game server*
-*Researched: 2026-05-01*
+*Stack research for: FPSBoxingPlugin — fps-boxing Vite app (webcam + Three.js first-person)*
+*Researched: 2026-05-12*
