@@ -1050,6 +1050,18 @@ mod http_tests {
     }
 
     #[tokio::test]
+    async fn get_lobby_contains_fps_boxing_button() {
+        let app = build_app(test_state());
+        let resp = app
+            .oneshot(Request::builder().method("GET").uri("/").body(Body::empty()).unwrap())
+            .await.unwrap();
+        let body = resp.into_body().collect().await.unwrap().to_bytes();
+        let html = std::str::from_utf8(&body).unwrap();
+        assert!(html.contains("selectGame('fps_boxing')"), "lobby missing fps_boxing tile — LBY-01");
+        assert!(html.contains("id=\"tile-fps_boxing\""), "lobby missing tile-fps_boxing id — LBY-01");
+    }
+
+    #[tokio::test]
     async fn get_rooms_code_returns_404_for_unknown_code() {
         let app = build_app(test_state());
         let resp = app
