@@ -79,7 +79,11 @@ Plans:
   1. MediaPipe PoseLandmarker runs in a Web Worker and landmark data reaches the main thread without dropping Three.js frame rate
   2. Raw landmark stream is smoothed by OneEuroFilter — jitter false-positives are eliminated at rest
   3. Player completes an arm-length calibration step (video preview + 3-punch prompt) and receives MsgMatchStart from the server
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 13-01-PLAN.md — Install 1eurofilter + implement usePose (workerRef, detection loop) + useOneEuroFilter (99 stateful instances) — WCI-01, WCI-02
+- [ ] 13-02-PLAN.md — Copy velocity.ts from mobile/ + adapt useCalibration (import path only) + CalibrationScreen (video preview + stage UI) — WCI-04
+- [ ] 13-03-PLAN.md — Wire App.tsx: usePose + useOneEuroFilter + CalibrationScreen + MsgCalibrationDone send + match phase routing — WCI-01, WCI-02, WCI-04
 **UI hint**: yes
 
 ### Phase 14: Three.js Renderer + Game Loop
@@ -111,5 +115,5 @@ Plans:
 | 10. FPSBoxingPlugin | 0/? | v2.0 | Not started | - |
 | 11. Lobby + Room Updates | 1/1 | v2.0 | Complete | 2026-05-13 |
 | 12. FPS Client Scaffold | 4/4 | v2.0 | Complete | 2026-05-13 |
-| 13. MediaPipe + Calibration | 0/? | v2.0 | Not started | - |
+| 13. MediaPipe + Calibration | 0/3 | v2.0 | Not started | - |
 | 14. Three.js Renderer + Game Loop | 0/? | v2.0 | Not started | - |
