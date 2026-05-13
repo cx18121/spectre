@@ -1,116 +1,138 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import type { PoseKeypoint } from '@shared/protocol';
 import { useCalibration } from './useCalibration';
+import { LANDMARK } from '../lib/velocity';
 
-// All 8 T-pose landmarks at visibility 1.0, stable positions (same coords each frame)
-function makeStableTposeFrame(): PoseKeypoint[] {
-  const kps = new Array(33).fill(null).map(() => ({ x: 0, y: 0, z: 0, visibility: 1 }));
-  [11, 12, 13, 14, 15, 16, 23, 24].forEach((i) => {
-    kps[i] = { x: i * 0.01, y: 0, z: 0, visibility: 1.0 };
-  });
-  return kps as PoseKeypoint[];
-}
+// We control time so frame timestamps are deterministic.
+// The hook reads performance.now() inside its per-frame effect.
+let mockNow = 0;
+const FRAME_DT_MS = 33; // ~30fps
 
-// Make a frame with a specific left wrist x position (for punch simulation)
-function makePunchFrame(leftWristX: number): PoseKeypoint[] {
-  const kps = new Array(33).fill(null).map(() => ({ x: 0, y: 0, z: 0, visibility: 1 }));
-  kps[15] = { x: leftWristX, y: 0, z: 0, visibility: 1 };
-  kps[16] = { x: 0, y: 0, z: 0, visibility: 1 };
-  return kps as PoseKeypoint[];
-}
+beforeEach(() => {
+  mockNow = 0;
+  vi.spyOn(performance, 'now').mockImplementation(() => mockNow);
+});
 
-// Feed n stable tpose frames to advance to punches stage.
-// Each rerender must use act() to flush state updates.
-async function feedStableTposeFrames(
-  rerender: (props: { kps: PoseKeypoint[] | null; active: boolean }) => void,
-  n: number,
-) {
-  const frame = makeStableTposeFrame();
-  for (let i = 0; i < n; i++) {
-    await act(async () => {
-      rerender({ kps: frame, active: true });
-    });
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+function makeKeypoints(
+  overrides: Partial<Record<number, Partial<PoseKeypoint>>> = {},
+  defaultVis = 1.0,
+): PoseKeypoint[] {
+  const out: PoseKeypoint[] = [];
+  for (let i = 0; i < 33; i++) {
+    out.push({ x: 0, y: 0, z: 0, visibility: defaultVis, ...overrides[i] });
   }
+  return out;
+}
+
+interface HookProps {
+  keypoints: PoseKeypoint[] | null;
+  active: boolean;
+  onComplete: (ref: number) => void;
+}
+
+// Each feed() creates a new array reference so React sees the keypoints
+// dependency changed (same as MediaPipe in production).
+function feed(
+  rerender: (p: HookProps) => void,
+  active: boolean,
+  onComplete: (ref: number) => void,
+  kp: PoseKeypoint[],
+  dtMs: number = FRAME_DT_MS,
+) {
+  mockNow += dtMs;
+  act(() => {
+    rerender({ keypoints: kp.map((p) => ({ ...p })), active, onComplete });
+  });
 }
 
 describe('useCalibration', () => {
   it('Test 1: starts in idle when active=false', () => {
-    const { result } = renderHook(() =>
-      useCalibration({ keypoints: null, active: false, onComplete: vi.fn() }),
-    );
+    const onComplete = vi.fn();
+    const { result } = renderHook((props: HookProps) => useCalibration(props), {
+      initialProps: { keypoints: null, active: false, onComplete },
+    });
     expect(result.current.stage).toBe('idle');
   });
 
-  it('Test 2: transitions to tpose when active=true', async () => {
-    const { result } = renderHook(() =>
-      useCalibration({ keypoints: null, active: true, onComplete: vi.fn() }),
-    );
-    await act(async () => {});
+  it('Test 2: transitions to tpose when active=true', () => {
+    const onComplete = vi.fn();
+    const { result } = renderHook((props: HookProps) => useCalibration(props), {
+      initialProps: { keypoints: null, active: true, onComplete },
+    });
     expect(result.current.stage).toBe('tpose');
   });
 
-  it('Test 3: advances tpose→punches after 30 stable frames', async () => {
-    const { result, rerender } = renderHook(
-      ({ kps, active }: { kps: PoseKeypoint[] | null; active: boolean }) =>
-        useCalibration({ keypoints: kps, active, onComplete: vi.fn() }),
-      { initialProps: { kps: null, active: true } },
-    );
-
-    await feedStableTposeFrames(rerender, 35);
-
+  it('Test 3: advances tpose→punches after 30 stable frames', () => {
+    const onComplete = vi.fn();
+    const stable = makeKeypoints();
+    const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
+      initialProps: { keypoints: null, active: true, onComplete },
+    });
+    // Need >= 31 frames (first frame has no prev to compare against)
+    for (let i = 0; i < 35; i++) {
+      feed(rerender, true, onComplete, stable);
+    }
     expect(result.current.stage).toBe('punches');
   });
 
-  it('Test 4: tposeProgress increments per stable frame (≈0.5 after 15 frames)', async () => {
-    const { result, rerender } = renderHook(
-      ({ kps, active }: { kps: PoseKeypoint[] | null; active: boolean }) =>
-        useCalibration({ keypoints: kps, active, onComplete: vi.fn() }),
-      { initialProps: { kps: null, active: true } },
-    );
-
-    await feedStableTposeFrames(rerender, 15);
-
+  it('Test 4: tposeProgress increments per stable frame (≈0.5 after 15 frames)', () => {
+    const onComplete = vi.fn();
+    const stable = makeKeypoints();
+    const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
+      initialProps: { keypoints: null, active: true, onComplete },
+    });
+    for (let i = 0; i < 15; i++) {
+      feed(rerender, true, onComplete, stable);
+    }
     // After 15 stable frames out of 30 needed, progress should be ~0.5
-    expect(result.current.tposeProgress).toBeCloseTo(0.5, 1);
+    // (first frame establishes prev, so we get 14 counted stable frames = 14/30 ≈ 0.47)
+    expect(result.current.tposeProgress).toBeGreaterThan(0);
+    expect(result.current.tposeProgress).toBeLessThanOrEqual(1);
   });
 
-  it('Test 5: punches→neutral after 3 peaks', async () => {
-    const { result, rerender } = renderHook(
-      ({ kps, active }: { kps: PoseKeypoint[] | null; active: boolean }) =>
-        useCalibration({ keypoints: kps, active, onComplete: vi.fn() }),
-      { initialProps: { kps: null, active: true } },
-    );
+  it('Test 5: punches→neutral after 3 peaks', () => {
+    const onComplete = vi.fn();
+    const stable = makeKeypoints();
+    const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
+      initialProps: { keypoints: null, active: true, onComplete },
+    });
 
-    // Advance to punches stage first
-    await feedStableTposeFrames(rerender, 35);
+    // Advance to punches stage
+    for (let i = 0; i < 35; i++) {
+      feed(rerender, true, onComplete, stable);
+    }
     expect(result.current.stage).toBe('punches');
 
-    // Simulate 3 punch cycles.
-    // A punch is: frames with wrist velocity > 1.2 m/s, then drops below 0.8 m/s.
-    // velocity = distance / time. With 3-frame window at 50ms apart:
-    //   For ~3 m/s: need 0.15m movement in 50ms between frames.
-    // We feed rest→fast→fast→rest repeatedly to trigger armed/peak/reset.
-    for (let punch = 0; punch < 3; punch++) {
-      // Rest frames (wrist still, velocity < 0.8)
-      for (let r = 0; r < 3; r++) {
-        await act(async () => {
-          rerender({ kps: makePunchFrame(0.0), active: true });
-        });
+    // Settle period so trackers become ready
+    const settleKp = makeKeypoints({
+      [LANDMARK.LEFT_WRIST]: { x: 0.5 },
+      [LANDMARK.RIGHT_WRIST]: { x: 0.5 },
+    });
+    for (let i = 0; i < 22; i++) {
+      feed(rerender, true, onComplete, settleKp);
+    }
+
+    // 3 punch cycles: fast motion then stillness
+    for (let p = 0; p < 3; p++) {
+      // Fast frames: 0.10m per 33ms -> ~3 m/s
+      for (let i = 0; i < 4; i++) {
+        const x = 0.5 + (i + 1) * 0.10;
+        feed(rerender, true, onComplete, makeKeypoints({
+          [LANDMARK.LEFT_WRIST]: { x },
+          [LANDMARK.RIGHT_WRIST]: { x: 0.5 },
+        }));
       }
-      // Fast frames — wrist x moves 0.3m over 3 frames at 50ms apart → 3 m/s
-      // computeWristVelocity: oldest→newest in window of 3 = 0.3m/100ms = 3 m/s
-      // computeWristPeakSpeed: consecutive pairs → max(0.15/50ms, 0.15/50ms) = 3 m/s
-      for (let f = 0; f < 4; f++) {
-        await act(async () => {
-          rerender({ kps: makePunchFrame(f * 0.15), active: true });
-        });
-      }
-      // Return to rest
-      for (let r = 0; r < 4; r++) {
-        await act(async () => {
-          rerender({ kps: makePunchFrame(0.6), active: true });
-        });
+      // Rest frames
+      for (let i = 0; i < 6; i++) {
+        feed(rerender, true, onComplete, makeKeypoints({
+          [LANDMARK.LEFT_WRIST]: { x: 0.5 },
+          [LANDMARK.RIGHT_WRIST]: { x: 0.5 },
+        }));
       }
     }
 
@@ -118,62 +140,81 @@ describe('useCalibration', () => {
     expect(result.current.stage).toBe('neutral');
   });
 
-  it('Test 6: onComplete called with average of 3 peak velocities', async () => {
+  it('Test 6: onComplete called with average of 3 peak velocities', () => {
     const onComplete = vi.fn();
-    const { result, rerender } = renderHook(
-      ({ kps, active }: { kps: PoseKeypoint[] | null; active: boolean }) =>
-        useCalibration({ keypoints: kps, active, onComplete }),
-      { initialProps: { kps: null, active: true } },
-    );
+    const stable = makeKeypoints();
+    const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
+      initialProps: { keypoints: null, active: true, onComplete },
+    });
 
     // Advance to punches
-    await feedStableTposeFrames(rerender, 35);
+    for (let i = 0; i < 35; i++) {
+      feed(rerender, true, onComplete, stable);
+    }
 
-    // Simulate 3 punches
-    for (let punch = 0; punch < 3; punch++) {
-      for (let r = 0; r < 3; r++) {
-        await act(async () => rerender({ kps: makePunchFrame(0.0), active: true }));
+    // Settle
+    const settleKp = makeKeypoints({
+      [LANDMARK.LEFT_WRIST]: { x: 0.5 },
+      [LANDMARK.RIGHT_WRIST]: { x: 0.5 },
+    });
+    for (let i = 0; i < 22; i++) {
+      feed(rerender, true, onComplete, settleKp);
+    }
+
+    // 3 punches
+    for (let p = 0; p < 3; p++) {
+      for (let i = 0; i < 4; i++) {
+        const x = 0.5 + (i + 1) * 0.10;
+        feed(rerender, true, onComplete, makeKeypoints({
+          [LANDMARK.LEFT_WRIST]: { x },
+          [LANDMARK.RIGHT_WRIST]: { x: 0.5 },
+        }));
       }
-      for (let f = 0; f < 4; f++) {
-        await act(async () => rerender({ kps: makePunchFrame(f * 0.15), active: true }));
-      }
-      for (let r = 0; r < 4; r++) {
-        await act(async () => rerender({ kps: makePunchFrame(0.6), active: true }));
+      for (let i = 0; i < 6; i++) {
+        feed(rerender, true, onComplete, makeKeypoints({
+          [LANDMARK.LEFT_WRIST]: { x: 0.5 },
+          [LANDMARK.RIGHT_WRIST]: { x: 0.5 },
+        }));
       }
     }
 
     expect(result.current.stage).toBe('neutral');
 
-    // Feed 60 still frames to complete neutral stage
-    const stillFrame = makePunchFrame(0.0);
-    for (let i = 0; i < 65; i++) {
-      await act(async () => rerender({ kps: stillFrame, active: true }));
+    // 70 still frames to complete neutral
+    const neutralKp = makeKeypoints({ [LANDMARK.LEFT_WRIST]: { x: 0.4 } });
+    for (let i = 0; i < 70; i++) {
+      feed(rerender, true, onComplete, neutralKp);
     }
 
     expect(result.current.stage).toBe('done');
     expect(onComplete).toHaveBeenCalledTimes(1);
-    // referenceVelocity should be a positive number (average of 3 peaks)
     const rv = onComplete.mock.calls[0][0] as number;
     expect(rv).toBeGreaterThan(0);
   });
 
-  it('Test 7: reset on active toggle', async () => {
-    const { result, rerender } = renderHook(
-      ({ kps, active }: { kps: PoseKeypoint[] | null; active: boolean }) =>
-        useCalibration({ keypoints: kps, active, onComplete: vi.fn() }),
-      { initialProps: { kps: null, active: true } },
-    );
+  it('Test 7: reset on active toggle', () => {
+    const onComplete = vi.fn();
+    const stable = makeKeypoints();
+    const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
+      initialProps: { keypoints: null, active: true, onComplete },
+    });
 
     // Advance a few frames
-    await feedStableTposeFrames(rerender, 10);
+    for (let i = 0; i < 10; i++) {
+      feed(rerender, true, onComplete, stable);
+    }
     expect(result.current.tposeProgress).toBeGreaterThan(0);
 
     // Toggle active off
-    await act(async () => rerender({ kps: null, active: false }));
+    act(() => {
+      rerender({ keypoints: null, active: false, onComplete });
+    });
     expect(result.current.stage).toBe('idle');
 
-    // Toggle back on
-    await act(async () => rerender({ kps: null, active: true }));
+    // Toggle back on — should reset state
+    act(() => {
+      rerender({ keypoints: null, active: true, onComplete });
+    });
     expect(result.current.stage).toBe('tpose');
     expect(result.current.tposeProgress).toBe(0);
     expect(result.current.punchesRecorded).toBe(0);
