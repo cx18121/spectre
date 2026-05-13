@@ -2,8 +2,11 @@ import { useCallback, useRef, useState } from 'react';
 import { PermissionScreen } from './components/PermissionScreen';
 import { WarmupScreen } from './components/WarmupScreen';
 import { WaitingScreen } from './components/WaitingScreen';
+import { CalibrationScreen } from './components/CalibrationScreen';
 import { useGameSocket } from './hooks/useGameSocket';
 import { useWarmup } from './hooks/useWarmup';
+import { usePose } from './hooks/usePose';
+import { useOneEuroFilter } from './hooks/useOneEuroFilter';
 import './app.css';
 
 type AppScreen = 'permission' | 'warmup' | 'waiting' | 'game';
@@ -16,9 +19,17 @@ function App() {
 
   const [screen, setScreen] = useState<AppScreen>('permission');
   const cameraStreamRef = useRef<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const socket = useGameSocket();
-  const { status: warmupStatus, error: warmupError } = useWarmup();
+  const { status: warmupStatus, error: warmupError, workerRef } = useWarmup();
+
+  // cameraReady: true after permission granted AND warmup complete
+  const cameraReady = screen !== 'permission' && screen !== 'warmup' && warmupStatus === 'ready';
+
+  // usePose called unconditionally at App level so Phase 14 can reuse the same hook instance
+  const pose = usePose(videoRef, cameraReady, workerRef);
+  const smoothedKeypoints = useOneEuroFilter(pose.keypoints);
 
   const handlePermissionGranted = useCallback((stream: MediaStream) => {
     cameraStreamRef.current = stream;
@@ -31,9 +42,10 @@ function App() {
     setScreen('waiting');
   }, [socket, serverUrl, roomCode, playerSlot]);
 
-  // calibration_start arrives via socket.phase; advance past waiting
-  // when both players are present. Phase 13 handles 'calibration' screen.
-  const showWaiting = screen === 'waiting' && socket.phase === 'lobby';
+  // Phase-driven screen routing
+  const showWaiting     = screen === 'waiting' && socket.phase === 'lobby';
+  const showCalibration = screen === 'waiting' && socket.phase === 'calibration';
+  const showMatch       = screen === 'waiting' && socket.phase === 'match';
   const effectiveSlot: 1 | 2 = socket.assignedSlot ?? playerSlot;
 
   return (
@@ -55,7 +67,17 @@ function App() {
           opponentConnected={socket.opponentConnected}
         />
       )}
-      {screen === 'game' && (
+      {showCalibration && (
+        <CalibrationScreen
+          stream={cameraStreamRef.current}
+          keypoints={smoothedKeypoints}
+          videoRef={videoRef}
+          onCalibrationDone={(refVel) => {
+            socket.send({ type: 'calibration_done', reference_velocity: refVel });
+          }}
+        />
+      )}
+      {showMatch && (
         <div id="game-canvas-root" />
       )}
     </div>

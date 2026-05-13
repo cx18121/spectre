@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type React from 'react';
 import type { PoseKeypoint } from '@shared/protocol';
 import { useCalibration } from '../hooks/useCalibration';
 
@@ -6,14 +7,17 @@ interface CalibrationScreenProps {
   stream: MediaStream | null;
   keypoints: PoseKeypoint[] | null;
   onCalibrationDone: (referenceVelocity: number) => void;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
 }
 
 export function CalibrationScreen({
   stream,
   keypoints,
   onCalibrationDone,
+  videoRef: externalVideoRef,
 }: CalibrationScreenProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const internalVideoRef = useRef<HTMLVideoElement | null>(null);
+  const videoRef = externalVideoRef ?? internalVideoRef;
 
   // Wire camera stream to video element
   useEffect(() => {
@@ -21,7 +25,7 @@ export function CalibrationScreen({
     if (video && stream) {
       video.srcObject = stream;
     }
-  }, [stream]);
+  }, [stream, videoRef]);
 
   const cal = useCalibration({
     keypoints,
