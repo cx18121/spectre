@@ -27,7 +27,7 @@
 **Milestone Goal:** A laptop-native, single-device FPS boxing game where the webcam tracks punches and renders a first-person Three.js view — no phone required.
 
 - [ ] **Phase 10: FPSBoxingPlugin** - New Rust crate implementing GamePlugin for fps_boxing rooms
-- [ ] **Phase 11: Lobby + Room Updates** - Expose fps_boxing in the game picker and room page
+- [x] **Phase 11: Lobby + Room Updates** - Expose fps_boxing in the game picker and room page
 - [ ] **Phase 12: FPS Client Scaffold** - New fps/ Vite app with WebSocket connection and webcam permission
 - [ ] **Phase 13: MediaPipe + Calibration** - Webcam pose detection in a Web Worker with calibration step
 - [ ] **Phase 14: Three.js Renderer + Game Loop** - Full first-person rendering, hit feedback, and game loop HUD
@@ -104,7 +104,7 @@
 | 8. Dance UX Design | 1/1 | v1.0 | Complete | 2026-05-10 |
 | 9. Dance Frontend | 4/4 | v1.0 | Complete | 2026-05-10 |
 | 10. FPSBoxingPlugin | 0/? | v2.0 | Not started | - |
-| 11. Lobby + Room Updates | 0/? | v2.0 | Not started | - |
+| 11. Lobby + Room Updates | 1/1 | v2.0 | Complete | 2026-05-13 |
 | 12. FPS Client Scaffold | 0/? | v2.0 | Not started | - |
 | 13. MediaPipe + Calibration | 0/? | v2.0 | Not started | - |
 | 14. Three.js Renderer + Game Loop | 0/? | v2.0 | Not started | - |
