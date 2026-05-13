@@ -186,10 +186,27 @@ fn generate_qr_svg(url: &str) -> String {
 /// requirement entirely.
 fn room_page_html(code: &str, game_type: &str, base_url: &str) -> String {
     let ws_url = ws_url_from_http(base_url);
-    // game_type is "boxing" or "dance" — ASCII-safe; no URL encoding needed.
-    let p1_url = format!("{}/mobile?server={}&room={}&slot=1&game={}", base_url, ws_url, code, game_type);
-    let p2_url = format!("{}/mobile?server={}&room={}&slot=2&game={}", base_url, ws_url, code, game_type);
-    let overlay_url = format!("{}/overlay?server={}&room={}", base_url, ws_url, code);
+    let is_fps = game_type == "fps_boxing";
+
+    let (p1_url, p2_url) = if is_fps {
+        (
+            format!("{}/fps?server={}&room={}&slot=1", base_url, ws_url, code),
+            format!("{}/fps?server={}&room={}&slot=2", base_url, ws_url, code),
+        )
+    } else {
+        (
+            format!("{}/mobile?server={}&room={}&slot=1&game={}", base_url, ws_url, code, game_type),
+            format!("{}/mobile?server={}&room={}&slot=2&game={}", base_url, ws_url, code, game_type),
+        )
+    };
+
+    // Only compute overlay URL for non-fps games
+    let overlay_url = if !is_fps {
+        format!("{}/overlay?server={}&room={}", base_url, ws_url, code)
+    } else {
+        String::new()
+    };
+
     // Escape every URL we splice into the rendered HTML — both the href/text
     // sites and the data-copy-url attribute.
     let p1_url_esc = html_escape(&p1_url);
@@ -198,9 +215,32 @@ fn room_page_html(code: &str, game_type: &str, base_url: &str) -> String {
     // QR SVGs are generated from *raw* (unescaped) URLs because the QR encoder
     // operates on bytes, not HTML. The SVG output itself is structured XML
     // emitted by the qrcode crate — it is safe to splice into HTML body.
-    let p1_svg = generate_qr_svg(&p1_url);
-    let p2_svg = generate_qr_svg(&p2_url);
-    let overlay_svg = generate_qr_svg(&overlay_url);
+    // For fps_boxing: skip QR code generation (laptop users click links, not scan)
+    let p1_svg = if !is_fps { generate_qr_svg(&p1_url) } else { String::new() };
+    let p2_svg = if !is_fps { generate_qr_svg(&p2_url) } else { String::new() };
+    let overlay_svg = if !is_fps { generate_qr_svg(&overlay_url) } else { String::new() };
+
+    // Build conditional HTML fragments before the final format!
+    let p1_qr_div = if !is_fps {
+        format!("      <div class=\"qr-code\">{}</div>\n", p1_svg)
+    } else {
+        String::new()
+    };
+    let p2_qr_div = if !is_fps {
+        format!("      <div class=\"qr-code\">{}</div>\n", p2_svg)
+    } else {
+        String::new()
+    };
+    let overlay_card = if !is_fps {
+        format!(
+            "    <div class=\"qr-card overlay\">\n      <div class=\"role-label\">OVERLAY</div>\n      <div class=\"qr-code\">{overlay_svg}</div>\n      <a href=\"{overlay_url_esc}\" target=\"_blank\" class=\"url-link\">{overlay_url_esc}</a>\n      <button class=\"copy-btn\" data-copy-url=\"{overlay_url_esc}\">Copy Link</button>\n    </div>\n",
+            overlay_svg = overlay_svg,
+            overlay_url_esc = overlay_url_esc,
+        )
+    } else {
+        String::new()
+    };
+
     // WR-04: escape code and game_type even though create_room currently
     // bounds them to alphanumeric — defends against a future code-injection
     // path (e.g. vanity codes) becoming a stored XSS sink.
@@ -279,23 +319,15 @@ fn room_page_html(code: &str, game_type: &str, base_url: &str) -> String {
   <div class="qr-grid">
     <div class="qr-card p1">
       <div class="role-label">PLAYER 1</div>
-      <div class="qr-code">{p1_svg}</div>
-      <a href="{p1_url_esc}" target="_blank" class="url-link">{p1_url_esc}</a>
+{p1_qr_div}      <a href="{p1_url_esc}" target="_blank" class="url-link">{p1_url_esc}</a>
       <button class="copy-btn" data-copy-url="{p1_url_esc}">Copy Link</button>
     </div>
     <div class="qr-card p2">
       <div class="role-label">PLAYER 2</div>
-      <div class="qr-code">{p2_svg}</div>
-      <a href="{p2_url_esc}" target="_blank" class="url-link">{p2_url_esc}</a>
+{p2_qr_div}      <a href="{p2_url_esc}" target="_blank" class="url-link">{p2_url_esc}</a>
       <button class="copy-btn" data-copy-url="{p2_url_esc}">Copy Link</button>
     </div>
-    <div class="qr-card overlay">
-      <div class="role-label">OVERLAY</div>
-      <div class="qr-code">{overlay_svg}</div>
-      <a href="{overlay_url_esc}" target="_blank" class="url-link">{overlay_url_esc}</a>
-      <button class="copy-btn" data-copy-url="{overlay_url_esc}">Copy Link</button>
-    </div>
-  </div>
+{overlay_card}  </div>
   <script>
     // WR-05: single delegated listener reads the URL from data-copy-url
     // instead of inlining it into an onclick attribute. This eliminates
@@ -319,12 +351,11 @@ fn room_page_html(code: &str, game_type: &str, base_url: &str) -> String {
 </html>"#,
         code_esc = code_esc,
         game_type_upper_esc = game_type_upper_esc,
-        p1_svg = p1_svg,
-        p2_svg = p2_svg,
-        overlay_svg = overlay_svg,
+        p1_qr_div = p1_qr_div,
+        p2_qr_div = p2_qr_div,
+        overlay_card = overlay_card,
         p1_url_esc = p1_url_esc,
         p2_url_esc = p2_url_esc,
-        overlay_url_esc = overlay_url_esc,
     )
 }
 
