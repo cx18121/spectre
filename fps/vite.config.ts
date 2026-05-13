@@ -14,4 +14,9 @@ export default defineConfig(({ command }) => ({
     host: true,
     port: 5174,
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: [],
+  },
 }))
