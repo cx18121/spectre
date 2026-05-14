@@ -86,6 +86,17 @@ Plans:
 - [x] 13-03-PLAN.md — Wire App.tsx: usePose + useOneEuroFilter + CalibrationScreen + MsgCalibrationDone send + match phase routing — WCI-01, WCI-02, WCI-04
 **UI hint**: yes
 
+### Phase 13.1: Punch Classifier Model (INSERTED)
+**Goal**: A trained ONNX punch classifier (<500KB, <2ms inference) distinguishes jab/cross/hook_l/hook_r/guard from MediaPipe landmarks with >85% accuracy across diverse users, integrated into fps/ as usePunchClassifier hook
+**Depends on**: Phase 13
+**Requirements**: TBD
+**Success Criteria** (what must be TRUE):
+  1. Temporal MLP or 1D CNN trained on BoxingVI + webcam recordings achieves >85% accuracy across 5 punch classes
+  2. Exported ONNX model is <500KB quantized, runs <2ms per inference in onnxruntime-web WASM
+  3. usePunchClassifier hook consumes useOneEuroFilter output and returns { type, confidence, speed } at 30fps
+  4. Hook vs. cross disambiguation works correctly using MediaPipe z-coordinate
+**Plans**: TBD
+
 ### Phase 14: Three.js Renderer + Game Loop
 **Goal**: Players see a first-person boxing view with animated arms, opponent rendering, hit feedback, and a full game loop HUD
 **Depends on**: Phase 13
@@ -116,4 +127,5 @@ Plans:
 | 11. Lobby + Room Updates | 1/1 | v2.0 | Complete | 2026-05-13 |
 | 12. FPS Client Scaffold | 4/4 | v2.0 | Complete | 2026-05-13 |
 | 13. MediaPipe + Calibration | 3/3 | v2.0 | Complete | 2026-05-13 |
+| 13.1. Punch Classifier Model | 0/? | v2.0 | Not started | - |
 | 14. Three.js Renderer + Game Loop | 0/? | v2.0 | Not started | - |
