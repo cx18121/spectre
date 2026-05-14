@@ -95,7 +95,11 @@ Plans:
   2. Exported ONNX model is <500KB quantized, runs <2ms per inference in onnxruntime-web WASM
   3. usePunchClassifier hook consumes useOneEuroFilter output and returns { type, confidence, speed } at 30fps
   4. Hook vs. cross disambiguation works correctly using MediaPipe z-coordinate
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 13.1-01-PLAN.md — ml/ scaffold: requirements.txt, README.md, extract_keypoints.py, record_webcam.py
+- [ ] 13.1-02-PLAN.md — train.py + export_onnx.py + quantize.py + fps/public/models/ placeholder
+- [ ] 13.1-03-PLAN.md — onnxruntime-web install + normalizeWindow.ts (2 tests) + usePunchClassifier hook (6 tests)
 
 ### Phase 14: Three.js Renderer + Game Loop
 **Goal**: Players see a first-person boxing view with animated arms, opponent rendering, hit feedback, and a full game loop HUD
@@ -127,5 +131,5 @@ Plans:
 | 11. Lobby + Room Updates | 1/1 | v2.0 | Complete | 2026-05-13 |
 | 12. FPS Client Scaffold | 4/4 | v2.0 | Complete | 2026-05-13 |
 | 13. MediaPipe + Calibration | 3/3 | v2.0 | Complete | 2026-05-13 |
-| 13.1. Punch Classifier Model | 0/? | v2.0 | Not started | - |
+| 13.1. Punch Classifier Model | 0/3 | v2.0 | Not started | - |
 | 14. Three.js Renderer + Game Loop | 0/? | v2.0 | Not started | - |
