@@ -37,16 +37,19 @@ interface HookProps {
 
 // Each feed() creates a new array reference so React sees the keypoints
 // dependency changed (same as MediaPipe in production).
+// rerender typed as unknown so it accepts renderHook's inferred Props generics without
+// structural mismatch between Mock<Procedure> and (ref: number) => void (contravariance).
 function feed(
-  rerender: (p: HookProps) => void,
+  rerenderFn: unknown,
   active: boolean,
-  onComplete: (ref: number) => void,
+  onComplete: ReturnType<typeof vi.fn>,
   kp: PoseKeypoint[],
   dtMs: number = FRAME_DT_MS,
 ) {
+  const rerender = rerenderFn as (p: HookProps) => void;
   mockNow += dtMs;
   act(() => {
-    rerender({ keypoints: kp.map((p) => ({ ...p })), active, onComplete });
+    rerender({ keypoints: kp.map((p) => ({ ...p })), active, onComplete: onComplete as unknown as (ref: number) => void });
   });
 }
 
@@ -54,7 +57,7 @@ describe('useCalibration', () => {
   it('Test 1: starts in idle when active=false', () => {
     const onComplete = vi.fn();
     const { result } = renderHook((props: HookProps) => useCalibration(props), {
-      initialProps: { keypoints: null, active: false, onComplete },
+      initialProps: { keypoints: null as PoseKeypoint[] | null, active: false, onComplete },
     });
     expect(result.current.stage).toBe('idle');
   });
@@ -62,7 +65,7 @@ describe('useCalibration', () => {
   it('Test 2: transitions to tpose when active=true', () => {
     const onComplete = vi.fn();
     const { result } = renderHook((props: HookProps) => useCalibration(props), {
-      initialProps: { keypoints: null, active: true, onComplete },
+      initialProps: { keypoints: null as PoseKeypoint[] | null, active: true, onComplete },
     });
     expect(result.current.stage).toBe('tpose');
   });
@@ -71,7 +74,7 @@ describe('useCalibration', () => {
     const onComplete = vi.fn();
     const stable = makeKeypoints();
     const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
-      initialProps: { keypoints: null, active: true, onComplete },
+      initialProps: { keypoints: null as PoseKeypoint[] | null, active: true, onComplete },
     });
     // Need >= 31 frames (first frame has no prev to compare against)
     for (let i = 0; i < 35; i++) {
@@ -84,7 +87,7 @@ describe('useCalibration', () => {
     const onComplete = vi.fn();
     const stable = makeKeypoints();
     const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
-      initialProps: { keypoints: null, active: true, onComplete },
+      initialProps: { keypoints: null as PoseKeypoint[] | null, active: true, onComplete },
     });
     for (let i = 0; i < 15; i++) {
       feed(rerender, true, onComplete, stable);
@@ -99,7 +102,7 @@ describe('useCalibration', () => {
     const onComplete = vi.fn();
     const stable = makeKeypoints();
     const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
-      initialProps: { keypoints: null, active: true, onComplete },
+      initialProps: { keypoints: null as PoseKeypoint[] | null, active: true, onComplete },
     });
 
     // Advance to punches stage
@@ -144,7 +147,7 @@ describe('useCalibration', () => {
     const onComplete = vi.fn();
     const stable = makeKeypoints();
     const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
-      initialProps: { keypoints: null, active: true, onComplete },
+      initialProps: { keypoints: null as PoseKeypoint[] | null, active: true, onComplete },
     });
 
     // Advance to punches
@@ -196,7 +199,7 @@ describe('useCalibration', () => {
     const onComplete = vi.fn();
     const stable = makeKeypoints();
     const { result, rerender } = renderHook((props: HookProps) => useCalibration(props), {
-      initialProps: { keypoints: null, active: true, onComplete },
+      initialProps: { keypoints: null as PoseKeypoint[] | null, active: true, onComplete },
     });
 
     // Advance a few frames
