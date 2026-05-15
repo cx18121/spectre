@@ -97,9 +97,9 @@ Plans:
   4. Hook vs. cross disambiguation works correctly using MediaPipe z-coordinate
 **Plans**: 3 plans
 Plans:
-- [ ] 13.1-01-PLAN.md — ml/ scaffold: requirements.txt, README.md, extract_keypoints.py, record_webcam.py
-- [ ] 13.1-02-PLAN.md — train.py + export_onnx.py + quantize.py + fps/public/models/ placeholder
-- [ ] 13.1-03-PLAN.md — onnxruntime-web install + normalizeWindow.ts (2 tests) + usePunchClassifier hook (6 tests)
+- [x] 13.1-01-PLAN.md — ml/ scaffold: requirements.txt, README.md, extract_keypoints.py, record_webcam.py
+- [x] 13.1-02-PLAN.md — train.py + export_onnx.py + quantize.py + fps/public/models/ placeholder
+- [x] 13.1-03-PLAN.md — onnxruntime-web install + normalizeWindow.ts (2 tests) + usePunchClassifier hook (6 tests)
 
 ### Phase 14: Three.js Renderer + Game Loop
 **Goal**: Players see a first-person boxing view with animated arms, opponent rendering, hit feedback, and a full game loop HUD
@@ -111,7 +111,12 @@ Plans:
   3. Camera shakes on incoming hit, HP bar drains smoothly in the HUD, and opponent arm snaps back on a landed punch
   4. Round timer, win counter, and match end screen with rematch option are visible and functional during play
   5. Player can start a solo match against a bot and can raise arms to guard against incoming punches
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+- [ ] 14-01-PLAN.md — Install three@0.184.0; extend useGameSocket with fps_state/fps_hit; coordinateMap + armGeometry utils; useGameRenderer dual-scene loop; GameRenderer component; App.tsx wiring (FPR-01, FPR-03, FPR-04)
+- [ ] 14-02-PLAN.md — springPhysics + guardDetection modules; wire spring extension + opponent lerp + guard detection into useGameRenderer (FPR-02, FPR-03, GML-04)
+- [ ] 14-03-PLAN.md — useBoxingAudio synthesis; camera shake + opponent snap-back + hit flash wired to MsgFpsHit (HFB-01, HFB-03, HFB-04, HFB-02 partial)
+- [ ] 14-04-PLAN.md — GameHud component + CSS; HP bars + timer + win counter + match-end overlay + rematch flow; human verify checkpoint (HFB-02, GML-01, GML-02, GML-03, GML-04)
 **UI hint**: yes
 
 ## Progress
@@ -131,5 +136,5 @@ Plans:
 | 11. Lobby + Room Updates | 1/1 | v2.0 | Complete | 2026-05-13 |
 | 12. FPS Client Scaffold | 4/4 | v2.0 | Complete | 2026-05-13 |
 | 13. MediaPipe + Calibration | 3/3 | v2.0 | Complete | 2026-05-13 |
-| 13.1. Punch Classifier Model | 0/3 | v2.0 | Not started | - |
-| 14. Three.js Renderer + Game Loop | 0/? | v2.0 | Not started | - |
+| 13.1. Punch Classifier Model | 3/3 | v2.0 | human_needed (scaffold verified; accuracy/latency require training) | - |
+| 14. Three.js Renderer + Game Loop | 0/4 | v2.0 | Not started | - |
