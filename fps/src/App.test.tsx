@@ -35,6 +35,9 @@ vi.mock('./components/WarmupScreen', () => ({
 vi.mock('./components/WaitingScreen', () => ({
   WaitingScreen: () => <div data-testid="waiting-screen" />,
 }));
+vi.mock('./components/GameRenderer', () => ({
+  GameRenderer: () => <div data-testid="game-renderer" />,
+}));
 
 const mockGameSocket = vi.mocked(useGameSocket);
 const mockUseWarmup = vi.mocked(useWarmup);
@@ -66,6 +69,8 @@ function setupMocks(phase: 'lobby' | 'calibration' | 'match' = 'lobby') {
     errorMessage: null,
     errorCode: null,
     gameType: null,
+    lastFpsState: null,
+    lastFpsHit: null,
   });
 
   mockUseWarmup.mockReturnValue({
@@ -120,10 +125,10 @@ describe('App phase routing', () => {
     expect(screen.queryByTestId('calibration-screen')).toBeNull();
   });
 
-  it('renders game-canvas-root when socket.phase === match', () => {
+  it('renders GameRenderer when socket.phase === match', () => {
     renderAtWaiting('match');
 
-    expect(document.getElementById('game-canvas-root')).toBeTruthy();
+    expect(screen.getByTestId('game-renderer')).toBeTruthy();
   });
 
   it('sends reference_velocity (not arm_reach) in calibration_done', () => {

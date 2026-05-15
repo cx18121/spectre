@@ -3,6 +3,7 @@ import { PermissionScreen } from './components/PermissionScreen';
 import { WarmupScreen } from './components/WarmupScreen';
 import { WaitingScreen } from './components/WaitingScreen';
 import { CalibrationScreen } from './components/CalibrationScreen';
+import { GameRenderer } from './components/GameRenderer';
 import { useGameSocket } from './hooks/useGameSocket';
 import { useWarmup } from './hooks/useWarmup';
 import { usePose } from './hooks/usePose';
@@ -78,7 +79,7 @@ function App() {
         />
       )}
       {showMatch && (
-        <div id="game-canvas-root" />
+        <GameRenderer smoothedKeypoints={smoothedKeypoints} socket={socket} playerSlot={effectiveSlot} />
       )}
     </div>
   );
