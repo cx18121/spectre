@@ -66,6 +66,8 @@ function setupMocks(phase: 'lobby' | 'calibration' | 'match' = 'lobby') {
     errorMessage: null,
     errorCode: null,
     gameType: null,
+    lastFpsState: null,
+    lastFpsHit: null,
   });
 
   mockUseWarmup.mockReturnValue({

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   InboundServerMsg,
+  MsgFpsHit,
+  MsgFpsState,
   MsgYouWereHit,
   OutboundMobileMsg,
 } from '@shared/protocol';
@@ -41,6 +43,8 @@ export interface UseGameSocketResult {
   matchEnd: MatchEnd | null;
   errorMessage: string | null;
   errorCode: 'unreachable' | 'room_not_found' | 'slot_taken' | null;
+  lastFpsState: MsgFpsState | null;
+  lastFpsHit: MsgFpsHit | null;
   send: (msg: OutboundMobileMsg) => void;
   connect: (serverUrl: string, roomCode: string, playerSlot: 1 | 2) => void;
   disconnect: () => void;
@@ -107,6 +111,8 @@ export function useGameSocket(): UseGameSocketResult {
   const [matchEnd, setMatchEnd] = useState<MatchEnd | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<'unreachable' | 'room_not_found' | 'slot_taken' | null>(null);
+  const [lastFpsState, setLastFpsState] = useState<MsgFpsState | null>(null);
+  const [lastFpsHit, setLastFpsHit] = useState<MsgFpsHit | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const pingTimerRef = useRef<number | null>(null);
@@ -219,8 +225,20 @@ export function useGameSocket(): UseGameSocketResult {
         break;
 
       // game_state goes to spectators only; mobile ignores it if it ever arrives.
-      default:
+      default: {
+        // Handle fps_boxing messages not in the InboundServerMsg union
+        const raw = msg as unknown as { type: string };
+        if (raw.type === 'fps_state') {
+          // T-14-01-01: guard hp array before indexing to prevent tampered server messages
+          const fpsState = msg as unknown as MsgFpsState;
+          if (Array.isArray(fpsState.hp) && fpsState.hp.length >= 2) {
+            setLastFpsState(fpsState);
+          }
+        } else if (raw.type === 'fps_hit') {
+          setLastFpsHit(msg as unknown as MsgFpsHit);
+        }
         break;
+      }
     }
   }, [send]);
 
@@ -378,6 +396,8 @@ export function useGameSocket(): UseGameSocketResult {
     matchEnd,
     errorMessage,
     errorCode,
+    lastFpsState,
+    lastFpsHit,
     send,
     connect,
     disconnect,
