@@ -1,5 +1,5 @@
 ---
-status: resolved
+status: complete
 phase: 06-overlay-fidelity
 source: [06-VERIFICATION.md]
 started: 2026-05-10T02:50:00Z
