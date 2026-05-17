@@ -30,7 +30,7 @@
 - [x] **Phase 11: Lobby + Room Updates** - Expose fps_boxing in the game picker and room page
 - [x] **Phase 12: FPS Client Scaffold** - New fps/ Vite app with WebSocket connection and webcam permission
 - [x] **Phase 13: MediaPipe + Calibration** - Webcam pose detection in a Web Worker with calibration step
-- [ ] **Phase 14: Three.js Renderer + Game Loop** - Full first-person rendering, hit feedback, and game loop HUD
+- [x] **Phase 14: Three.js Renderer + Game Loop** - Full first-person rendering, hit feedback, and game loop HUD (completed 2026-05-17)
 
 ## Phase Details
 
@@ -118,11 +118,11 @@ Plans:
   5. Player can start a solo match against a bot and can raise arms to guard against incoming punches
 **Plans**: 5 plans
 Plans:
-- [ ] 14-01-PLAN.md — Install three@0.184.0; extend useGameSocket; coordinateMap + armGeometry utils; useGameRenderer dual-scene loop; GameRenderer component; App.tsx wiring (FPR-01, FPR-03, FPR-04)
-- [ ] 14-01b-PLAN.md — Per-frame GPU latency assertion (pose.worker.ts + usePose.ts); Y-axis sign + OutlineEffect verification spikes (D-15)
-- [ ] 14-02-PLAN.md — springPhysics + guardDetection modules; wire spring extension + opponent lerp + guard detection into useGameRenderer (FPR-02, FPR-03, GML-04)
-- [ ] 14-03-PLAN.md — useBoxingAudio synthesis; camera shake + opponent snap-back + hit flash wired to MsgFpsHit (HFB-01, HFB-02 partial, HFB-03, HFB-04)
-- [ ] 14-04-PLAN.md — GameHud component + CSS; HP bars + timer + win counter + match-end overlay + rematch flow + guard multiplier; human verify checkpoint (HFB-02, GML-01, GML-02, GML-03, GML-04)
+- [x] 14-01-PLAN.md — Install three@0.184.0; extend useGameSocket; coordinateMap + armGeometry utils; useGameRenderer dual-scene loop; GameRenderer component; App.tsx wiring (FPR-01, FPR-03, FPR-04)
+- [x] 14-01b-PLAN.md — Per-frame GPU latency assertion (pose.worker.ts + usePose.ts); Y-axis sign + OutlineEffect verification spikes (D-15)
+- [x] 14-02-PLAN.md — springPhysics + guardDetection modules; wire spring extension + opponent lerp + guard detection into useGameRenderer (FPR-02, FPR-03, GML-04)
+- [x] 14-03-PLAN.md — useBoxingAudio synthesis; camera shake + opponent snap-back + hit flash wired to MsgFpsHit (HFB-01, HFB-02 partial, HFB-03, HFB-04)
+- [x] 14-04-PLAN.md — GameHud component + CSS; HP bars + timer + win counter + match-end overlay + rematch flow + guard multiplier; human verify checkpoint (HFB-02, GML-01, GML-02, GML-03, GML-04)
 **UI hint**: yes
 
 ## Progress
@@ -143,4 +143,4 @@ Plans:
 | 12. FPS Client Scaffold | 4/4 | v2.0 | Complete | 2026-05-13 |
 | 13. MediaPipe + Calibration | 3/3 | v2.0 | Complete | 2026-05-13 |
 | 13.1. Punch Classifier Model | 3/3 | v2.0 | human_needed (scaffold verified; accuracy/latency require training) | - |
-| 14. Three.js Renderer + Game Loop | 0/4 | v2.0 | Not started | - |
+| 14. Three.js Renderer + Game Loop | 0/4 | 5/5 | Complete   | 2026-05-17 |

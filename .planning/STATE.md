@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: First-Person Boxing
-status: executing
-stopped_at: Phase 13 complete
-last_updated: "2026-05-13T12:00:00.000Z"
-last_activity: 2026-05-13 -- Phase 13 mediapipe-calibration execution complete
+status: completed
+stopped_at: Phase 14 UI-SPEC approved
+last_updated: "2026-05-17T23:08:49.072Z"
+last_activity: 2026-05-17 -- Phase 14 marked complete
 progress:
-  total_phases: 5
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 60
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 17
+  completed_plans: 21
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** The engine must make it trivially easy to add a new pose-based game by implementing a well-defined plugin interface — without touching the engine core or understanding its internals.
-**Current focus:** Phase 13 complete — Phase 14 (Three.js Renderer + Game Loop) next
+**Current focus:** Phase 14 — three-js-renderer-game-loop
 
 ## Current Position
 
-Phase: 13 (mediapipe-calibration) — COMPLETE
-Plan: 3 of 3 (all plans done)
-Status: Phase 13 complete, ready for Phase 14
-Last activity: 2026-05-13 -- Phase 13 execution complete (3 plans, 71 fps + 159 Rust tests green)
+Phase: 14 — COMPLETE
+Plan: 1 of 5
+Status: Phase 14 complete
+Last activity: 2026-05-17 -- Phase 14 marked complete
 
-Progress: [██░░░░░░░░] 20%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ None.
 
 ### Blockers/Concerns
 
+- **Phase 13.1 — Training data required**: placeholder ONNX model in fps/public/models/ has all-zero weights. Run ml/ training pipeline on BoxingVI + webcam recordings before Phase 14 integration.
 - **Phase 13 — MediaPipe GPU delegate on integrated GPUs**: GPU delegation improves inference from 40-80 ms to 8-15 ms, but silent CPU fallback with no error. Add per-frame timing assertions in Phase 13 to detect fallback.
 - **Phase 13 — OneEuroFilter tuning**: Starting values (min_cutoff=1.0, beta=0.007) may need tuning per webcam resolution during implementation.
 - **Phase 10 — PlayerSlot indexing**: Confirm SendToPlayer { slot: 0 } = Player 1 engine convention vs 1-indexed protocol.ts with a targeted Rust test before Phase 14 opponent rendering.
@@ -88,6 +89,6 @@ None.
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 10 context gathered
-Resume file: --resume-file
+Last session: 2026-05-15
+Stopped at: Phase 14 UI-SPEC approved
+Resume file: —
