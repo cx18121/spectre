@@ -1,5 +1,41 @@
 # Milestones: PoseEngine
 
+## v2.0 First-Person Boxing (Shipped: 2026-05-17)
+
+**Phases:** 6 | **Plans:** 21 | **Timeline:** 2026-05-13 → 2026-05-17 (5 days)
+**Files changed:** 133 | **Lines added:** ~24,300 | **New code:** ~8,000 LOC (TypeScript + Rust)
+
+### Delivered
+
+A laptop-native, single-device FPS boxing game. The webcam tracks the player's punches via MediaPipe in a Web Worker; a Three.js first-person view renders toon-shaded arms with spring physics; the Rust server runs authoritative hit detection and syncs opponent state at 60Hz. No phone required.
+
+### Key Accomplishments
+
+1. **FPSBoxingPlugin** — New Rust crate implementing `GamePlugin` for fps_boxing rooms; authoritative hit detection, HP tracking, guard blocking, bot mode, MsgFpsState broadcast per tick
+2. **fps/ Vite app** — New standalone React+TypeScript client: WebSocket hook, WaitingScreen, warmup flow; mirrors mobile/ structure
+3. **MediaPipe + Calibration** — Pose detection in a Web Worker (same pattern as mobile/); OneEuroFilter smoothing on 99 landmark instances; arm-length calibration step with video preview
+4. **Three.js dual-scene renderer** — Player arms in a depth-separated arms scene (MeshToonMaterial + OutlineEffect); opponent arms in world scene; `clearDepth()` between passes; 60fps animation loop
+5. **Spring physics + guard detection** — Semi-implicit Euler spring on forearm extension (FPR-02); frame-rate-independent exponential lerp for opponent arms; guard hysteresis (3-frame enter / 5-frame exit)
+6. **Hit feedback** — Camera shake (trauma-decay), opponent arm snap-back (lambda=80), 120ms screen flash, synthesized Web Audio (impact vs blocked) — all firing together on MsgFpsHit
+7. **GameHud** — HP bars (green→red at 50%), round timer, win counter dots, WIN/LOSE overlay (Anton font), REMATCH button; guard-aware 0.5× client-side damage display (GML-04)
+
+### Timeline
+
+- Start: 2026-05-13
+- Ship: 2026-05-17
+- Duration: 5 days
+
+### Known Gaps at Close
+
+- Punch classifier (Phase 13.1) deferred to v3 — pipeline scaffold complete, no FPS-perspective training data. Velocity-based detection sufficient. See ROADMAP.md BL-01.
+
+### Archive
+
+- Roadmap: `.planning/milestones/v2.0-ROADMAP.md`
+- Requirements: `.planning/milestones/v2.0-REQUIREMENTS.md`
+
+---
+
 ## v1.0 — PoseEngine MVP
 
 **Shipped:** 2026-05-10
