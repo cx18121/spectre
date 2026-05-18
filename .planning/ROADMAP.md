@@ -142,5 +142,15 @@ Plans:
 | 11. Lobby + Room Updates | 1/1 | v2.0 | Complete | 2026-05-13 |
 | 12. FPS Client Scaffold | 4/4 | v2.0 | Complete | 2026-05-13 |
 | 13. MediaPipe + Calibration | 3/3 | v2.0 | Complete | 2026-05-13 |
-| 13.1. Punch Classifier Model | 3/3 | v2.0 | human_needed (scaffold verified; accuracy/latency require training) | - |
-| 14. Three.js Renderer + Game Loop | 0/4 | 5/5 | Complete   | 2026-05-17 |
+| 13.1. Punch Classifier Model | 3/3 | v2.0 | Deferred to v3 — pipeline scaffold complete; no FPS-perspective training data | - |
+| 14. Three.js Renderer + Game Loop | 5/5 | v2.0 | Complete | 2026-05-17 |
+
+## Backlog
+
+Items captured for future milestones but not yet scheduled.
+
+| ID | Item | Target | Notes |
+|----|------|--------|-------|
+| BL-01 | Punch classifier ML model — jab/cross/hook_l/hook_r damage multipliers | v3 | Pipeline scaffold in `ml/` is complete. Blocked on FPS-perspective training data. Use `ml/scripts/record_webcam.py` to collect ~30min of labeled FPS punches, then run `ml/train.py`. `usePunchClassifier` hook is in-repo and ready to wire up once a real model is trained. |
+| BL-02 | AI commentary (COMM-01..04) | v3 | Deferred from v1.0 |
+| BL-03 | AI game generation | v3 | Deferred from v1.0 — SDK is proven |

@@ -59,6 +59,7 @@ The engine must make it trivially easy to add a new pose-based game by implement
 - User accounts, authentication tokens — 6-char room code access model retained
 - AI commentary — ported last; COMM-01..04 deferred to v2
 - AI game generation — deferred until SDK is proven (it now is); target for v2
+- Punch classifier ML model — v3 backlog. All existing boxing datasets (BoxingVI etc.) are third-person camera footage; FPS-perspective landmark geometry is fundamentally different and no pre-labeled dataset exists. Velocity-based punch detection (Phase 13 `velocity.ts`) is sufficient for v2. When punch-type damage multipliers (jab/cross/hook) are a priority, collect FPS webcam recordings using `ml/scripts/record_webcam.py` (already built) and train on that. The full ml/ pipeline scaffold and `usePunchClassifier` hook are in-repo and ready — only training data is missing.
 
 ## Context
 
